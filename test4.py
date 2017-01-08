@@ -1,48 +1,55 @@
-#!/usr/bin/env python
-#-*- coding:utf-8 -*-
+import sys
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
-from PyQt4 import QtCore, QtGui
 
-class myDialog(QtGui.QDialog):
-    _buttons = 0
-
+class tabdemo(QTabWidget):
     def __init__(self, parent=None):
-        super(myDialog, self).__init__(parent)
+        super(tabdemo, self).__init__(parent)
+        self.tab1 = QWidget()
+        self.tab2 = QWidget()
+        self.tab3 = QWidget()
 
-        self.pushButton = QtGui.QPushButton(self)
-        self.pushButton.setText(QtGui.QApplication.translate("self", "Add Button!", None, QtGui.QApplication.UnicodeUTF8))
-        self.pushButton.clicked.connect(self.on_pushButton_clicked)
+        self.addTab(self.tab1, "Tab 1")
+        self.addTab(self.tab2, "Tab 2")
+        self.addTab(self.tab3, "Tab 3")
+        self.tab1UI()
+        self.tab2UI()
+        self.tab3UI()
+        self.setWindowTitle("tab demo")
 
-        self.scrollArea = QtGui.QScrollArea(self)
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollAreaWidgetContents = QtGui.QWidget(self.scrollArea)
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 380, 247))
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
+    def tab1UI(self):
+        layout = QFormLayout()
+        layout.addRow("Name", QLineEdit())
+        layout.addRow("Address", QLineEdit())
+        self.setTabText(0, "Contact Details")
+        self.tab1.setLayout(layout)
 
-        self.verticalLayout = QtGui.QVBoxLayout(self)
-        self.verticalLayout.addWidget(self.pushButton)
-        self.verticalLayout.addWidget(self.scrollArea)
+    def tab2UI(self):
+        layout = QFormLayout()
+        sex = QHBoxLayout()
+        sex.addWidget(QRadioButton("Male"))
+        sex.addWidget(QRadioButton("Female"))
+        layout.addRow(QLabel("Sex"), sex)
+        layout.addRow("Date of Birth", QLineEdit())
+        self.setTabText(1, "Personal Details")
+        self.tab2.setLayout(layout)
 
-        self.verticalLayoutScroll = QtGui.QVBoxLayout(self.scrollAreaWidgetContents)
-
-    @QtCore.pyqtSlot()
-    def on_pushButton_clicked(self):
-        self._buttons  += 1
-        pustButtonName = u"Button {0}".format(self._buttons)
-
-        pushButton = QtGui.QPushButton(self.scrollAreaWidgetContents)
-        pushButton.setText(pustButtonName)
-
-        self.verticalLayoutScroll.addWidget(pushButton)
+    def tab3UI(self):
+        layout = QHBoxLayout()
+        layout.addWidget(QLabel("subjects"))
+        layout.addWidget(QCheckBox("Physics"))
+        layout.addWidget(QCheckBox("Maths"))
+        self.setTabText(2, "Education Details")
+        self.tab3.setLayout(layout)
 
 
-if __name__ == "__main__":
-    import sys
-
-    app = QtGui.QApplication(sys.argv)
-    app.setApplicationName('myDialog')
-
-    main = myDialog()
-    main.show()
-
+def main():
+    app = QApplication(sys.argv)
+    ex = tabdemo()
+    ex.show()
     sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()

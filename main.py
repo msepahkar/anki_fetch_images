@@ -14,15 +14,17 @@ import ImageQt
 import Image
 import threading
 
-NUMBER_OF_IMAGES_IN_EACH_RAW = 8
+def enum(**enums):
+    return type('Enum', (), enums)
+Language = enum(english=1, german=2)
 
-images_queue_lock = threading.Lock()
+NUMBER_OF_IMAGES_IN_EACH_RAW = 5
+
 processed_queue_lock = threading.Lock()
-images_queue = []
 processed_queue = []
-processing_tag = "processing"
-word_field = "Word"
-update_results_signal = "update_results(QString, PyQt_PyObject)"
+signal_image_fetched = "add_image_to_dialog(QString, PyQt_PyObject, PyQt_PyObject)"
+signal_image_urls_fetched = "fetch_images(PyQt_PyObject, PyQt_PyObject)"
+threads_fetch_image = []
 
 
 # def get_soup(url,header):
@@ -30,91 +32,83 @@ update_results_signal = "update_results(QString, PyQt_PyObject)"
 
 
 #####################################################################
-class ImagesDialog(QtGui.QDialog):
+class ImagesDialog(QtGui.QTabWidget):
     # *************************
     def __init__(self, parent=None):
         super(ImagesDialog, self).__init__(parent)
 
+        # window
         self.setWindowTitle("Images")
+        self.resize(1000, 1000)
+        
+        # tabs
+        self.tab_normal_images = QtGui.QWidget()
+        self.tab_clip_arts = QtGui.QWidget()
+        self.tab_line_drawings = QtGui.QWidget()
 
-        self.resize(300, 300)
-        self.move(300, 300)
+        self.addTab(self.tab_normal_images, "normal images")
+        self.addTab(self.tab_clip_arts, "cliparts")
+        self.addTab(self.tab_line_drawings, "line drawings")
 
-        self.scroll_area = QtGui.QScrollArea(self)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area_widget_contents = QtGui.QWidget(self.scroll_area)
-        self.scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
-        self.scroll_area.setWidget(self.scroll_area_widget_contents)
+        self.add_layouts(self.tab_normal_images)
+        self.add_layouts(self.tab_clip_arts)
+        self.add_layouts(self.tab_line_drawings)
 
-        self.vertical_layout = QtGui.QVBoxLayout(self)
-        self.vertical_layout.addWidget(self.scroll_area)
+        self.thread_fetch_normal_image_urls = ThreadFetchImageUrls('cat', Language.english, None, self.tab_normal_images)
+        self.connect(self.thread_fetch_normal_image_urls, QtCore.SIGNAL(signal_image_urls_fetched), self.fetch_images)
+        self.thread_fetch_normal_image_urls.start()
 
-        self.vertical_layout_scroll = QtGui.QVBoxLayout(self.scroll_area_widget_contents)
+        self.thread_fetch_clipart_image_urls = ThreadFetchImageUrls('cat', Language.english, 'clipart', self.tab_clip_arts)
+        self.connect(self.thread_fetch_clipart_image_urls, QtCore.SIGNAL(signal_image_urls_fetched), self.fetch_images)
+        self.thread_fetch_clipart_image_urls.start()
 
-        self.threads = []
-        for i in range(0, 10):
-            self.threads.append(FetchingThread())
-            self.connect(self.threads[i], QtCore.SIGNAL(update_results_signal), self.update_results)
+        self.thread_fetch_linedrawing_image_urls = ThreadFetchImageUrls('cat', Language.english, 'line drawing', self.tab_line_drawings)
+        self.connect(self.thread_fetch_linedrawing_image_urls, QtCore.SIGNAL(signal_image_urls_fetched), self.fetch_images)
+        self.thread_fetch_linedrawing_image_urls.start()
 
-        self.horizental_layouts = []
-
-        # first row of images
-        self.horizental_layouts.append(QtGui.QHBoxLayout())
-        self.vertical_layout_scroll.addLayout(self.horizental_layouts[-1])
-
-        QtCore.QTimer.singleShot(100, self.fetch_images)
+        # delay for first showing the dialog
+        # QtCore.QTimer.singleShot(100, self.fetch_images)
 
     ###########################################################
-    def fetch_images(self):
-        print 'fetching image addresses ...'
-        query = 'cat'  # raw_input("query image")# you can change the query for the image  here
-        image_type = "ActiOn"
-        query = query.split()
-        query = '+'.join(query)
-        url = "https://www.google.com/search?q=" + query + "&source=lnms&tbm=isch"
-        print url
-        # self.fetch_images(url)
+    def fetch_images(self, image_urls, tab):
+        lock = threading.Lock()
+        # threads
+        for i in range(0, 10):
+            threads_fetch_image.append(ThreadFetchImage(image_urls, lock, tab))
+            self.connect(threads_fetch_image[i], QtCore.SIGNAL(signal_image_fetched), self.add_image_to_dialog)
+            threads_fetch_image[i].start()
 
+    ###########################################################
+    def add_layouts(self, tab):
+        # scroll area
+        tab.scroll_area = QtGui.QScrollArea(tab)
+        tab.scroll_area.setWidgetResizable(True)
+        tab.scroll_area_widget_contents = QtGui.QWidget(tab.scroll_area)
+        tab.scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
+        tab.scroll_area.setWidget(tab.scroll_area_widget_contents)
 
-        header = {
-            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
-        }
-        image_type = "ActiOn"
-        openned_url = urllib2.urlopen(urllib2.Request(url, headers=header))
-
-        page = StringIO(openned_url.read())
-
-        # find the directory the pronunciation
-        pattern = re.compile('<img.*?>')
-        img_tags = pattern.findall(page.getvalue())
-
-        pattern = re.compile('src=".*?"')
-        cntr = 1
-        images = []
-        sizes = []
-        for img_tag in img_tags:
-            image_urls = pattern.findall(img_tag)
-            if len(image_urls) > 0:
-                image_url = image_urls[0].replace('src="', '').replace('"', '')
-                # print(image_url)
-                with images_queue_lock:
-                    images_queue.append((cntr, image_url))
-                cntr += 1
-
-        print 'image urls fetched.\n fetching images ...'
-        for thread in self.threads:
-            thread.start()
+        # layouts
+        # base vertical layout
+        tab.vertical_layout = QtGui.QVBoxLayout(tab)
+        tab.vertical_layout.addWidget(tab.scroll_area)
+        # scrollable vertical layout
+        tab.vertical_layout_scroll = QtGui.QVBoxLayout(tab.scroll_area_widget_contents)
+        # horizontal layouts
+        tab.horizontal_layouts = []
+        # first row of images
+        tab.horizontal_layouts.append(QtGui.QHBoxLayout())
+        tab.vertical_layout_scroll.addLayout(tab.horizontal_layouts[-1])
 
     # *************************
-    def update_results(self, image_number, image):
+    def add_image_to_dialog(self, image_number, image, tab):
         view = GraphicsView(1, image.size[0], image.size[1])
         view.display_image(image)
         view.fit()
         image_number = int(image_number)
-        while image_number >= len(self.horizental_layouts) * NUMBER_OF_IMAGES_IN_EACH_RAW:
-            self.horizental_layouts.append(QtGui.QHBoxLayout())
-            self.vertical_layout_scroll.addLayout(self.horizental_layouts[-1])
-        self.horizental_layouts[image_number // NUMBER_OF_IMAGES_IN_EACH_RAW].addWidget(view)
+        while image_number >= len(tab.horizontal_layouts) * NUMBER_OF_IMAGES_IN_EACH_RAW:
+            tab.horizontal_layouts.append(QtGui.QHBoxLayout())
+            tab.vertical_layout_scroll.addLayout(tab.horizontal_layouts[-1])
+        tab.horizontal_layouts[image_number // NUMBER_OF_IMAGES_IN_EACH_RAW].addWidget(view)
 
 
 #####################################################################
@@ -232,29 +226,79 @@ class GraphicsView(QtGui.QGraphicsView):
 
 
 #####################################################################
-class FetchingThread(QtCore.QThread):
+class ThreadFetchImage(QtCore.QThread):
     # *************************
-    def __init__(self):
-        super(FetchingThread, self).__init__(None)
+    def __init__(self, image_urls, lock, tab):
+        super(ThreadFetchImage, self).__init__(None)
+        self.image_urls = image_urls
+        self.lock = lock
+        self.tab = tab
 
     # *************************
     def run(self):
-        while len(images_queue) > 0:
-            with images_queue_lock:
+        while len(self.image_urls) > 0:
+            with self.lock:
                 # check if any note is left
-                if len(images_queue) <= 0:
+                if len(self.image_urls) <= 0:
                     return
                 # retrieve one note
-                image_number, image_url = images_queue[0]
-                del images_queue[0]
+                image_number, image_url = self.image_urls[0]
+                del self.image_urls[0]
             try:
                 image = Image.open(StringIO(urllib.urlopen(image_url).read()))
-                self.emit(QtCore.SIGNAL(update_results_signal), str(image_number), image)
+                self.emit(QtCore.SIGNAL(signal_image_fetched), str(image_number), image, self.tab)
                 print image_number, 'ok'
                 # break
             except Exception as e:
                 print image_number, 'bad image', e
 
+
+#####################################################################
+class ThreadFetchImageUrls(QtCore.QThread):
+    # *************************
+    def __init__(self, word, language, image_type, tab):
+        super(ThreadFetchImageUrls, self).__init__(None)
+        query = word + ((' ' + image_type) if image_type is not None else '')
+        query = query.split()
+        query = '+'.join(query)
+        if language == Language.english:
+            self.url = "https://www.google.com/search?q=" + query + "&source=lnms&tbm=isch"
+        elif language == Language.german:
+            self.url = "https://www.google.de/search?q=" + query + "&source=lnms&tbm=isch"
+        else:
+            print 'unknown language'
+        self.tab = tab
+
+    # *************************
+    def run(self):
+        print 'fetching image addresses ...'
+
+        header = {
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
+        }
+
+        print self.url
+        openned_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
+
+        page = StringIO(openned_url.read())
+
+        # find the directory the pronunciation
+        pattern = re.compile('<img.*?>')
+        img_tags = pattern.findall(page.getvalue())
+
+        pattern = re.compile('src=".*?"')
+        cntr = 1
+        image_urls = []
+        for img_tag in img_tags:
+            urls = pattern.findall(img_tag)
+            if len(urls) > 0:
+                url = urls[0].replace('src="', '').replace('"', '')
+                image_urls.append((cntr, url))
+                cntr += 1
+
+        print 'image urls fetched.'
+        print len(image_urls)
+        self.emit(QtCore.SIGNAL(signal_image_urls_fetched), image_urls, self.tab)
 
 app = QtGui.QApplication(sys.argv)
 
