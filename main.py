@@ -1,3 +1,4 @@
+import time
 import math
 from bs4 import BeautifulSoup
 import requests
@@ -13,6 +14,7 @@ import ImageQt
 import Image
 import threading
 
+NUMBER_OF_IMAGES_IN_EACH_RAW = 8
 
 images_queue_lock = threading.Lock()
 processed_queue_lock = threading.Lock()
@@ -20,13 +22,14 @@ images_queue = []
 processed_queue = []
 processing_tag = "processing"
 word_field = "Word"
-update_signal = "update_results(QString, QString)"
+update_results_signal = "update_results(QString, PyQt_PyObject)"
 
 
-def get_soup(url,header):
-    return BeautifulSoup(urllib2.urlopen(urllib2.Request(url,headers=header)),'html.parser')
+# def get_soup(url,header):
+#     return BeautifulSoup(urllib2.urlopen(urllib2.Request(url,headers=header)),'html.parser')
 
 
+#####################################################################
 class ImagesDialog(QtGui.QDialog):
     # *************************
     def __init__(self, parent=None):
@@ -37,40 +40,42 @@ class ImagesDialog(QtGui.QDialog):
         self.resize(300, 300)
         self.move(300, 300)
 
-        self.scrollArea = QtGui.QScrollArea(self)
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollAreaWidgetContents = QtGui.QWidget(self.scrollArea)
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1000, 1000))
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
+        self.scroll_area = QtGui.QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area_widget_contents = QtGui.QWidget(self.scroll_area)
+        self.scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
+        self.scroll_area.setWidget(self.scroll_area_widget_contents)
 
-        self.verticalLayout = QtGui.QVBoxLayout(self)
-        self.verticalLayout.addWidget(self.scrollArea)
+        self.vertical_layout = QtGui.QVBoxLayout(self)
+        self.vertical_layout.addWidget(self.scroll_area)
 
-        layout = QtGui.QVBoxLayout(self.scrollAreaWidgetContents)
-        self.setLayout(layout)
+        self.vertical_layout_scroll = QtGui.QVBoxLayout(self.scroll_area_widget_contents)
 
         self.threads = []
         for i in range(0, 10):
             self.threads.append(FetchingThread())
-            self.connect(self.threads[i], QtCore.SIGNAL(update_signal), self.update_results)
+            self.connect(self.threads[i], QtCore.SIGNAL(update_results_signal), self.update_results)
 
-        self.layouts_h = []
-        for i in range(10):
-            self.layouts_h.append(QtGui.QHBoxLayout())
-            layout.addLayout(self.layouts_h[-1])
+        self.horizental_layouts = []
 
+        # first row of images
+        self.horizental_layouts.append(QtGui.QHBoxLayout())
+        self.vertical_layout_scroll.addLayout(self.horizental_layouts[-1])
+
+        QtCore.QTimer.singleShot(100, self.fetch_images)
+
+    ###########################################################
+    def fetch_images(self):
+        print 'fetching image addresses ...'
         query = 'cat'  # raw_input("query image")# you can change the query for the image  here
         image_type = "ActiOn"
         query = query.split()
         query = '+'.join(query)
         url = "https://www.google.com/search?q=" + query + "&source=lnms&tbm=isch"
         print url
-        self.fetch_images(url)
-        for thread in self.threads:
-            thread.start()
+        # self.fetch_images(url)
 
-    ###########################################################
-    def fetch_images(self, url):
+
         header = {
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
         }
@@ -96,24 +101,20 @@ class ImagesDialog(QtGui.QDialog):
                     images_queue.append((cntr, image_url))
                 cntr += 1
 
-    # *************************
-    def start(self):
-        # initialization should be done only once
-        if not self.started:
-            # consider initializations done
-            self.started = True
-            # add notes to the queue
-            for noteId in self.noteIds:
-                noteQueue.append(mw.col.getNote(noteId))
-            for thread in self.threads:
-                thread.start()
+        print 'image urls fetched.\n fetching images ...'
+        for thread in self.threads:
+            thread.start()
 
     # *************************
     def update_results(self, image_number, image):
-        view = GraphicsView(1, 50, 50)
-        # view.display_image(image)
-        # view.fit()
-        self.layouts_h[int(image_number) // 10].addWidget(view)
+        view = GraphicsView(1, image.size[0], image.size[1])
+        view.display_image(image)
+        view.fit()
+        image_number = int(image_number)
+        while image_number >= len(self.horizental_layouts) * NUMBER_OF_IMAGES_IN_EACH_RAW:
+            self.horizental_layouts.append(QtGui.QHBoxLayout())
+            self.vertical_layout_scroll.addLayout(self.horizental_layouts[-1])
+        self.horizental_layouts[image_number // NUMBER_OF_IMAGES_IN_EACH_RAW].addWidget(view)
 
 
 #####################################################################
@@ -141,7 +142,6 @@ class GraphicsView(QtGui.QGraphicsView):
     def mousePressEvent(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
             pos = self.mapToScene(event.pos())
-            print 'hello from: ' + str(self.number)
             # print('left:', pos.x(), pos.y())
             # previousAnchor = self.transformationAnchor()
             # # have to set this for self.translate() to work.
@@ -203,8 +203,6 @@ class GraphicsView(QtGui.QGraphicsView):
             self.setDragMode(QtGui.QGraphicsView.NoDrag)
 
     def resizeEvent(self, event):
-        print 'current size:', self.size()
-        print 'old size:', event.oldSize()
         self.fit()
 
     #####################################################################
@@ -214,9 +212,8 @@ class GraphicsView(QtGui.QGraphicsView):
             if not rect.isNull():
                 unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
                 self.scale(1 / unity.width(), 1 / unity.height())
-                # viewrect = self.viewport().rect()
+                viewrect = self.viewport().rect()
                 scenerect = self.transform().mapRect(rect)
-                print self.size()
                 factor = min((self.size().width() - 10) / scenerect.width(),
                              (self.size().height() - 10) / scenerect.height())
                 self.scale(factor, factor)
@@ -234,6 +231,7 @@ class GraphicsView(QtGui.QGraphicsView):
         self.scene.update()
 
 
+#####################################################################
 class FetchingThread(QtCore.QThread):
     # *************************
     def __init__(self):
@@ -248,12 +246,10 @@ class FetchingThread(QtCore.QThread):
                     return
                 # retrieve one note
                 image_number, image_url = images_queue[0]
-                print 'hi', image_number, image_url
                 del images_queue[0]
             try:
-                # image = Image.open(StringIO(urllib.urlopen(image_url).read()))
-                image = 'hello'
-                self.emit(QtCore.SIGNAL(update_signal), str(image_number), image)
+                image = Image.open(StringIO(urllib.urlopen(image_url).read()))
+                self.emit(QtCore.SIGNAL(update_results_signal), str(image_number), image)
                 print image_number, 'ok'
                 # break
             except Exception as e:
