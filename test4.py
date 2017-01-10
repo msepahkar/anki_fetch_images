@@ -1,55 +1,42 @@
+from PyQt4 import QtGui, QtCore
 import sys
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+
+class MyTableWidget(QtGui.QTableWidget):
+
+    def __init__(self, name='Table1', parent=None):
+        super(MyTableWidget, self).__init__(parent)
+        self.name = name
+
+    def contextMenuEvent(self, event):
+        menu = QtGui.QMenu(self)
+
+        Action = menu.addAction("I am a " + self.name + " Action")
+        Action.triggered.connect(self.printName)
+
+        menu.exec_(event.globalPos())
+
+    def printName(self):
+        print "Action triggered from " + self.name
 
 
-class tabdemo(QTabWidget):
+class Main(QtGui.QWidget):
     def __init__(self, parent=None):
-        super(tabdemo, self).__init__(parent)
-        self.tab1 = QWidget()
-        self.tab2 = QWidget()
-        self.tab3 = QWidget()
+        super(Main, self).__init__(parent)
 
-        self.addTab(self.tab1, "Tab 1")
-        self.addTab(self.tab2, "Tab 2")
-        self.addTab(self.tab3, "Tab 3")
-        self.tab1UI()
-        self.tab2UI()
-        self.tab3UI()
-        self.setWindowTitle("tab demo")
+        layout = QtGui.QVBoxLayout(self)
 
-    def tab1UI(self):
-        layout = QFormLayout()
-        layout.addRow("Name", QLineEdit())
-        layout.addRow("Address", QLineEdit())
-        self.setTabText(0, "Contact Details")
-        self.tab1.setLayout(layout)
+        self.table1 = MyTableWidget(name='Table1', parent=self)
+        self.table2 = MyTableWidget(name='Table2', parent=self)
 
-    def tab2UI(self):
-        layout = QFormLayout()
-        sex = QHBoxLayout()
-        sex.addWidget(QRadioButton("Male"))
-        sex.addWidget(QRadioButton("Female"))
-        layout.addRow(QLabel("Sex"), sex)
-        layout.addRow("Date of Birth", QLineEdit())
-        self.setTabText(1, "Personal Details")
-        self.tab2.setLayout(layout)
-
-    def tab3UI(self):
-        layout = QHBoxLayout()
-        layout.addWidget(QLabel("subjects"))
-        layout.addWidget(QCheckBox("Physics"))
-        layout.addWidget(QCheckBox("Maths"))
-        self.setTabText(2, "Education Details")
-        self.tab3.setLayout(layout)
-
-
-def main():
-    app = QApplication(sys.argv)
-    ex = tabdemo()
-    ex.show()
-    sys.exit(app.exec_())
+        layout.addWidget(self.table1)
+        layout.addWidget(self.table2)
+        self.setLayout(layout)
 
 
 if __name__ == '__main__':
-    main()
+
+    app = QtGui.QApplication(sys.argv)
+    main = Main()
+    main.show()
+
+    app.exec_()
