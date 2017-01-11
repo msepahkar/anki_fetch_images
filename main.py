@@ -14,7 +14,8 @@ import ImageQt
 import Image
 import threading
 from PyQt4 import QtWebKit
-
+from PIL.ImageQt import ImageQt
+import PIL
 
 def enum(**enums):
     return type('Enum', (), enums)
@@ -24,7 +25,7 @@ NUMBER_OF_IMAGES_IN_EACH_RAW = 5
 
 processed_queue_lock = threading.Lock()
 processed_queue = []
-signal_image_fetched = "add_image_to_dialog(QString, PyQt_PyObject, PyQt_PyObject)"
+signal_image_fetched = "add_image_to_dialog(int, PyQt_PyObject, PyQt_PyObject)"
 signal_image_urls_fetched = "fetch_images(PyQt_PyObject, PyQt_PyObject)"
 threads_fetch_image = []
 
@@ -40,17 +41,20 @@ class InlineBrowser(QtWebKit.QWebView):
     def contextMenuEvent(self, event):
         menu = QtGui.QMenu(self)
 
-        Action = menu.addAction('fetch: ' + self.selectedText())
-        Action.triggered.connect(self.fetch_this_word)
+        word = str(self.selectedText())
+        menu_item_1 = menu.addAction('english fetch: ' + word)
+        menu_item_1.triggered.connect(lambda: self.fetch_this_word(word, Language.english))
+
+        menu_item_2 = menu.addAction('german fetch: ' + word)
+        menu_item_2.triggered.connect(lambda: self.fetch_this_word(word, Language.german))
 
         menu.exec_(self.mapToGlobal(event.pos()))
 
     #####################################################################
-    def fetch_this_word(self):
-        text = str(self.selectedText())
-        if text:
-            self.image_dialog.add_dictionary_tabs(text)
-            self.image_dialog.add_image_tabs(text)
+    def fetch_this_word(self, word, language):
+        if word:
+            self.image_dialog.add_dictionary_tabs(word, language)
+            self.image_dialog.add_image_tabs(word, language)
 
 
 # def get_soup(url,header):
@@ -76,14 +80,9 @@ class TabDictionary(QtGui.QWidget):
 
 
 #####################################################################
-def is_german(word):
-    return True
-
-
-#####################################################################
 class ImagesDialog(QtGui.QTabWidget):
     # *************************
-    def __init__(self, word, parent=None):
+    def __init__(self, word, language, parent=None):
         super(ImagesDialog, self).__init__(parent)
 
         # window
@@ -95,30 +94,32 @@ class ImagesDialog(QtGui.QTabWidget):
         self.addTab(self.tab_dictionaries, 'dictinoaries')
 
         # main word dictionaries
-        self.add_dictionary_tabs(word)
+        self.add_dictionary_tabs(word, language)
 
         # images
         self.tab_images = QtGui.QTabWidget()
         self.addTab(self.tab_images, 'images')
 
         # main word images
-        self.add_image_tabs(word)
+        self.add_image_tabs(word, language)
 
     ###########################################################
-    def add_dictionary_tabs(self, word):
-        tab = QtGui.QTabWidget()
-        self.tab_dictionaries.addTab(tab, word)
+    def add_dictionary_tabs(self, word, language):
         # english dictionaries
-        tab.tab_dictionaries = [TabDictionary('google translate', 'https://translate.google.com/#en/fa/', self),
-                                                      TabDictionary('vocabulary.com', 'https://www.vocabulary.com/dictionary/', self),
-                                                      TabDictionary('webster', 'https://www.merriam-webster.com/dictionary/', self),
-                                                      TabDictionary('oxford', 'https://en.oxforddictionaries.com/definition/us/', self)]
-        for tab_dictionary in tab.tab_dictionaries:
-            tab.addTab(tab_dictionary, tab_dictionary.name)
-            tab_dictionary.browse(word)
+        if language == Language.english:
+            tab_english = QtGui.QTabWidget()
+            self.tab_dictionaries.addTab(tab_english, word)
+            # english dictionaries
+            tab_english.tab_dictionaries = [TabDictionary('google translate', 'https://translate.google.com/#en/fa/', self),
+                                    TabDictionary('vocabulary.com', 'https://www.vocabulary.com/dictionary/', self),
+                                    TabDictionary('webster', 'https://www.merriam-webster.com/dictionary/', self),
+                                    TabDictionary('oxford', 'https://en.oxforddictionaries.com/definition/us/', self)]
+            for tab_dictionary in tab_english.tab_dictionaries:
+                tab_english.addTab(tab_dictionary, tab_dictionary.name)
+                tab_dictionary.browse(word)
 
         # german dictionaries
-        if is_german(word):
+        elif language == Language.german:
             tab_german = QtGui.QTabWidget()
             self.tab_dictionaries.addTab(tab_german, word + '-german')
             tab_german.tab_dictionaries = [TabDictionary('google translate', 'https://translate.google.com/#de/fa/', self),
@@ -131,36 +132,43 @@ class ImagesDialog(QtGui.QTabWidget):
                 tab_dictionary.browse(word)
 
     ###########################################################
-    def add_image_tabs(self, word):
-        print 'adding image tabs for: ' + word
-        tab = QtGui.QTabWidget()
-        self.tab_images.addTab(tab, word)
+    def add_image_tabs(self, word, language):
+        # english images
+        if language == Language.english:
+            tab_english = QtGui.QTabWidget()
+            self.tab_images.addTab(tab_english, word)
 
-        tab.tab_normal_images = QtGui.QWidget()
-        tab.tab_clip_arts = QtGui.QWidget()
-        tab.tab_line_drawings = QtGui.QWidget()
+            tab_english.tab_normal_images = QtGui.QWidget()
+            tab_english.tab_clip_arts = QtGui.QWidget()
+            tab_english.tab_line_drawings = QtGui.QWidget()
 
-        tab.addTab(tab.tab_normal_images, "normal images")
-        tab.addTab(tab.tab_clip_arts, "cliparts")
-        tab.addTab(tab.tab_line_drawings, "line drawings")
-        
-        self.add_layouts(tab.tab_normal_images)
-        self.add_layouts(tab.tab_clip_arts)
-        self.add_layouts(tab.tab_line_drawings)
+            tab_english.addTab(tab_english.tab_normal_images, "normal images")
+            tab_english.addTab(tab_english.tab_clip_arts, "cliparts")
+            tab_english.addTab(tab_english.tab_line_drawings, "line drawings")
 
-        self.thread_fetch_normal_image_urls = ThreadFetchImageUrls(word, Language.english, None, tab.tab_normal_images)
-        self.connect(self.thread_fetch_normal_image_urls, QtCore.SIGNAL(signal_image_urls_fetched), self.fetch_images)
-        self.thread_fetch_normal_image_urls.start()
+            self.add_layouts(tab_english.tab_normal_images)
+            self.add_layouts(tab_english.tab_clip_arts)
+            self.add_layouts(tab_english.tab_line_drawings)
 
-        self.thread_fetch_clipart_image_urls = ThreadFetchImageUrls(word, Language.english, 'clipart', tab.tab_clip_arts)
-        self.connect(self.thread_fetch_clipart_image_urls, QtCore.SIGNAL(signal_image_urls_fetched), self.fetch_images)
-        self.thread_fetch_clipart_image_urls.start()
+            self.thread_fetch_normal_image_urls = ThreadFetchImageUrls(word, Language.english, None,
+                                                                       tab_english.tab_normal_images)
+            self.connect(self.thread_fetch_normal_image_urls, QtCore.SIGNAL(signal_image_urls_fetched),
+                         self.fetch_images)
+            self.thread_fetch_normal_image_urls.start()
 
-        self.thread_fetch_linedrawing_image_urls = ThreadFetchImageUrls(word, Language.english, 'line drawing', tab.tab_line_drawings)
-        self.connect(self.thread_fetch_linedrawing_image_urls, QtCore.SIGNAL(signal_image_urls_fetched), self.fetch_images)
-        self.thread_fetch_linedrawing_image_urls.start()
+            self.thread_fetch_clipart_image_urls = ThreadFetchImageUrls(word, Language.english, 'clipart',
+                                                                        tab_english.tab_clip_arts)
+            self.connect(self.thread_fetch_clipart_image_urls, QtCore.SIGNAL(signal_image_urls_fetched),
+                         self.fetch_images)
+            self.thread_fetch_clipart_image_urls.start()
 
-        if is_german(word):
+            self.thread_fetch_linedrawing_image_urls = ThreadFetchImageUrls(word, Language.english, 'line drawing',
+                                                                            tab_english.tab_line_drawings)
+            self.connect(self.thread_fetch_linedrawing_image_urls, QtCore.SIGNAL(signal_image_urls_fetched),
+                         self.fetch_images)
+            self.thread_fetch_linedrawing_image_urls.start()
+        # german images
+        elif language == Language.german:
             tab_german = QtGui.QTabWidget()
             self.tab_images.addTab(tab_german, word + '-german')
 
@@ -223,7 +231,8 @@ class ImagesDialog(QtGui.QTabWidget):
     def add_image_to_dialog(self, image_number, image, tab):
         view = GraphicsView(1, image.size[0], image.size[1])
         view.setMinimumHeight(image.size[1] / 2)
-        view.display_image(image)
+        view.display_image(image_number, image)
+        view.image_number = image_number
         view.fit()
         image_number = int(image_number)
         while image_number >= len(tab.horizontal_layouts) * NUMBER_OF_IMAGES_IN_EACH_RAW:
@@ -274,11 +283,11 @@ class GraphicsView(QtGui.QGraphicsView):
                 self.centerOn(rect.center())
 
     #####################################################################
-    def display_image(self, image):
+    def display_image(self, image_number, image):
         self.scene.clear()
         # w, h = image.size
-        self.imgQ = ImageQt.ImageQt(image)  # we need to hold reference to imgQ, or it will crash
-        self.pixMap = QtGui.QPixmap.fromImage(self.imgQ)
+        self.imgQ = ImageQt(image)  # we need to hold reference to imgQ, or it will crash
+        self.pixMap = QtGui.QPixmap.fromImage(self.imgQ)#self.imgQ)
         self.scene.addPixmap(self.pixMap)
         # self.fitInView(QtCore.QRectF(0, 0, w, h), QtCore.Qt.KeepAspectRatio)
         self.scene.update()
@@ -287,7 +296,7 @@ class GraphicsView(QtGui.QGraphicsView):
     def contextMenuEvent(self, QContextMenuEvent):
         menu = QtGui.QMenu(self)
 
-        Action = menu.addAction("set this image")
+        Action = menu.addAction("set this image (number: {}".format(self.image_number))
         Action.triggered.connect(self.save_image)
 
         menu.exec_(self.mapToGlobal(QContextMenuEvent.pos()))
@@ -318,8 +327,8 @@ class ThreadFetchImage(QtCore.QThread):
                 image_number, image_url = self.image_urls[0]
                 del self.image_urls[0]
             try:
-                image = Image.open(StringIO(urllib.urlopen(image_url).read()))
-                self.emit(QtCore.SIGNAL(signal_image_fetched), str(image_number), image, self.tab)
+                image = Image.open(StringIO(urllib.urlopen(image_url).read())).convert("RGB")
+                self.emit(QtCore.SIGNAL(signal_image_fetched), (image_number), image, self.tab)
                 print image_number, 'ok'
                 # break
             except Exception as e:
@@ -374,7 +383,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
 app = QtGui.QApplication(sys.argv)
 
-w = ImagesDialog('hello')
+w = ImagesDialog('hello', Language.english)
 
 w.show()
 

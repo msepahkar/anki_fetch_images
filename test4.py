@@ -1,42 +1,10 @@
-from PyQt4 import QtGui, QtCore
-import sys
-
-class MyTableWidget(QtGui.QTableWidget):
-
-    def __init__(self, name='Table1', parent=None):
-        super(MyTableWidget, self).__init__(parent)
-        self.name = name
-
-    def contextMenuEvent(self, event):
-        menu = QtGui.QMenu(self)
-
-        Action = menu.addAction("I am a " + self.name + " Action")
-        Action.triggered.connect(self.printName)
-
-        menu.exec_(event.globalPos())
-
-    def printName(self):
-        print "Action triggered from " + self.name
+from PIL import Image
 
 
-class Main(QtGui.QWidget):
+#####################################################################
+class WordImage(Image):
     def __init__(self, parent=None):
-        super(Main, self).__init__(parent)
+        # super(WordImage, self).__init__(parent)
+        pass
 
-        layout = QtGui.QVBoxLayout(self)
-
-        self.table1 = MyTableWidget(name='Table1', parent=self)
-        self.table2 = MyTableWidget(name='Table2', parent=self)
-
-        layout.addWidget(self.table1)
-        layout.addWidget(self.table2)
-        self.setLayout(layout)
-
-
-if __name__ == '__main__':
-
-    app = QtGui.QApplication(sys.argv)
-    main = Main()
-    main.show()
-
-    app.exec_()
+wi = WordImage()
