@@ -24,12 +24,12 @@ Language = enum(english=1, german=2)
 InfoType = enum(dictionary=1, image=2, dictionary_image=3)
 
 NUMBER_OF_IMAGES_IN_EACH_RAW = 5
-NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 1
+NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 14
 
 processed_queue_lock = threading.Lock()
 processed_queue = []
 signal_image_fetched = "add_image_to_dialog(int, PyQt_PyObject, PyQt_PyObject)"
-signal_image_urls_fetched = "fetch_images(PyQt_PyObject, PyQt_PyObject)"
+signal_image_urls_fetched = "fetch_images(PyQt_PyObject, PyQt_PyObject, PyQt_PyObject)"
 
 
 #####################################################################
@@ -227,6 +227,12 @@ class ThreadFetchImageUrls(QtCore.QThread):
     # *************************
     def __init__(self, word, language, image_type, tab):
         super(ThreadFetchImageUrls, self).__init__(None)
+        if image_type is None:
+            self.image_priority = QtCore.QThread.HighPriority
+        elif image_type == "clipart":
+            self.image_priority = QtCore.QThread.NormalPriority
+        else:
+            self.image_priority = QtCore.QThread.LowPriority
         query = word + ((' ' + image_type) if image_type is not None else '')
         query = query.split()
         query = '+'.join(query)
@@ -268,7 +274,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
             print len(image_urls), 'image urls fetched.'
             if not self.quit_request:
-                self.emit(QtCore.SIGNAL(signal_image_urls_fetched), image_urls, self.tab)
+                self.emit(QtCore.SIGNAL(signal_image_urls_fetched), image_urls, self.image_priority, self.tab)
             else:
                 print 'quitting url fetching thread ...'
         else:
@@ -280,7 +286,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
 
 #####################################################################
-class ImagesDialog(QtGui.QTabWidget):
+class ImagesDialog(QtGui.QWidget):
     # *************************
     def __init__(self, word, language, media_dir, parent=None):
         super(ImagesDialog, self).__init__(parent)
@@ -293,22 +299,29 @@ class ImagesDialog(QtGui.QTabWidget):
         self.threads_fetch_normal_image_urls = []
         self.threads_fetch_clipart_image_urls = []
         self.threads_fetch_linedrawing_image_urls = []
+        self.threads_fetch_image = []
+
         # window
         self.setWindowTitle("Images")
         self.resize(1000, 1000)
 
-        self.threads_fetch_image = []
+        self.layout = QtGui.QVBoxLayout()
+        self.setLayout(self.layout)
+        self.tab_widget = QtGui.QTabWidget()
+        self.layout.addWidget(self.tab_widget)
+        self.status_line = QtGui.QLabel(word)
+        self.layout.addWidget(self.status_line)
 
         # dictionaries
-        self.tab_dictionaries = QtGui.QTabWidget()
-        self.addTab(self.tab_dictionaries, 'dictinoaries')
+        self.tab_widget.tab_dictionaries = QtGui.QTabWidget()
+        self.tab_widget.addTab(self.tab_widget.tab_dictionaries, 'dictinoaries')
 
         # main word dictionaries
         self.add_dictionary_tabs(word, language)
 
         # images
-        self.tab_images = QtGui.QTabWidget()
-        self.addTab(self.tab_images, 'images')
+        self.tab_widget.tab_images = QtGui.QTabWidget()
+        self.tab_widget.addTab(self.tab_widget.tab_images, 'images')
 
         # main word images
         self.add_image_tabs(word, language)
@@ -318,7 +331,7 @@ class ImagesDialog(QtGui.QTabWidget):
         # english dictionaries
         if language == Language.english:
             tab_english = QtGui.QTabWidget()
-            self.tab_dictionaries.addTab(tab_english, word)
+            self.tab_widget.tab_dictionaries.addTab(tab_english, word)
             # english dictionaries
             tab_english.tab_dictionaries = [
                 TabDictionary('google translate', 'https://translate.google.com/#en/fa/', self),
@@ -332,7 +345,7 @@ class ImagesDialog(QtGui.QTabWidget):
         # german dictionaries
         elif language == Language.german:
             tab_german = QtGui.QTabWidget()
-            self.tab_dictionaries.addTab(tab_german, word + '-german')
+            self.tab_widget.tab_dictionaries.addTab(tab_german, word + '-german')
             tab_german.tab_dictionaries = [
                 TabDictionary('google translate', 'https://translate.google.com/#de/fa/', self),
                 TabDictionary('dict.cc', 'http://www.dict.cc/?s=', self),
@@ -348,7 +361,7 @@ class ImagesDialog(QtGui.QTabWidget):
         # english images
         if language == Language.english:
             tab_english = QtGui.QTabWidget()
-            self.tab_images.addTab(tab_english, word)
+            self.tab_widget.tab_images.addTab(tab_english, word)
 
             tab_english.tab_normal_images = QtGui.QWidget()
             tab_english.tab_clip_arts = QtGui.QWidget()
@@ -366,23 +379,23 @@ class ImagesDialog(QtGui.QTabWidget):
                                                                         tab_english.tab_normal_images))
             self.connect(self.threads_fetch_normal_image_urls[-1], QtCore.SIGNAL(signal_image_urls_fetched),
                          self.fetch_images)
-            self.threads_fetch_normal_image_urls[-1].start()
+            self.threads_fetch_normal_image_urls[-1].start(QtCore.QThread.HighestPriority)
 
             self.threads_fetch_clipart_image_urls.append(ThreadFetchImageUrls(word, Language.english, 'clipart',
                                                                          tab_english.tab_clip_arts))
             self.connect(self.threads_fetch_clipart_image_urls[-1], QtCore.SIGNAL(signal_image_urls_fetched),
                          self.fetch_images)
-            self.threads_fetch_clipart_image_urls[-1].start()
+            self.threads_fetch_clipart_image_urls[-1].start(QtCore.QThread.HighPriority)
 
             self.threads_fetch_linedrawing_image_urls.append(ThreadFetchImageUrls(word, Language.english, 'line drawing',
                                                                              tab_english.tab_line_drawings))
             self.connect(self.threads_fetch_linedrawing_image_urls[-1], QtCore.SIGNAL(signal_image_urls_fetched),
                          self.fetch_images)
-            self.threads_fetch_linedrawing_image_urls[-1].start()
+            self.threads_fetch_linedrawing_image_urls[-1].start(QtCore.QThread.NormalPriority)
         # german images
         elif language == Language.german:
             tab_german = QtGui.QTabWidget()
-            self.tab_images.addTab(tab_german, word + '-german')
+            self.tab_widget.tab_images.addTab(tab_german, word + '-german')
 
             tab_german.tab_normal_images = QtGui.QWidget()
             tab_german.tab_clip_arts = QtGui.QWidget()
@@ -400,22 +413,22 @@ class ImagesDialog(QtGui.QTabWidget):
                                                                         tab_german.tab_normal_images))
             self.connect(self.threads_fetch_normal_image_urls[-1], QtCore.SIGNAL(signal_image_urls_fetched),
                          self.fetch_images)
-            self.threads_fetch_normal_image_urls[-1].start()
+            self.threads_fetch_normal_image_urls[-1].start(QtCore.QThread.HighestPriority)
 
             self.threads_fetch_clipart_image_urls.append(ThreadFetchImageUrls(word, Language.german, 'clipart',
                                                                          tab_german.tab_clip_arts))
             self.connect(self.threads_fetch_clipart_image_urls[1], QtCore.SIGNAL(signal_image_urls_fetched),
                          self.fetch_images)
-            self.threads_fetch_clipart_image_urls[-1].start()
+            self.threads_fetch_clipart_image_urls[-1].start(QtCore.QThread.HighPriority)
 
             self.threads_fetch_linedrawing_image_urls.append(ThreadFetchImageUrls(word, Language.german, 'line drawing',
                                                                                   tab_german.tab_line_drawings))
             self.connect(self.threads_fetch_linedrawing_image_urls[-1], QtCore.SIGNAL(signal_image_urls_fetched),
                          self.fetch_images)
-            self.threads_fetch_linedrawing_image_urls[-1].start()
+            self.threads_fetch_linedrawing_image_urls[-1].start(QtCore.QThread.NormalPriority)
 
     ###########################################################
-    def fetch_images(self, image_urls, tab):
+    def fetch_images(self, image_urls, priority, tab):
         if self.quit_request:
             return
         lock = threading.Lock()
@@ -424,7 +437,7 @@ class ImagesDialog(QtGui.QTabWidget):
         for i in range(NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL):
             self.threads_fetch_image.append(ThreadFetchImage(image_urls, lock, tab))
             self.connect(self.threads_fetch_image[-1], QtCore.SIGNAL(signal_image_fetched), self.add_fetched_image)
-            self.threads_fetch_image[-1].start()
+            self.threads_fetch_image[-1].start(priority)
 
     ###########################################################
     def add_layouts(self, tab):
@@ -502,11 +515,14 @@ class ImagesDialog(QtGui.QTabWidget):
                 thread.terminate()
 
     ###########################################################
+    def update_status(self, ):
+
+    ###########################################################
     def stop_dictionaries(self):
-        for i in range(self.tab_dictionaries.count()):
-            for j in range(self.tab_dictionaries.widget(i).count()):
+        for i in range(self.tab_widget.tab_dictionaries.count()):
+            for j in range(self.tab_widget.tab_dictionaries.widget(i).count()):
                 print 'stopping dictionary ...'
-                self.tab_dictionaries.widget(i).widget(j).browser.stop()
+                self.tab_widget.tab_dictionaries.widget(i).widget(j).browser.stop()
 
     ###########################################################
     def wait_for_threads(self):
@@ -525,6 +541,8 @@ class ImagesDialog(QtGui.QTabWidget):
         self.stop_dictionaries()
         self.quit_threads()
         self.terminate_threads()
+
+
 
 
 app = QtGui.QApplication(sys.argv)
