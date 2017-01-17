@@ -53,6 +53,8 @@ class TabWidget(QtGui.QTabWidget):
 
 #####################################################################
 class InlineBrowser(QtWebKit.QWebView):
+    Signals = enum(started=1, progress=2, finished=3)
+
     #####################################################################
     def __init__(self, mother, parent=None):
         super(InlineBrowser, self).__init__(parent)
@@ -115,7 +117,9 @@ class TabDictionary(Widget):
         top_mother = mother
         while top_mother.mother:
             top_mother = top_mother.mother
-        self.browser.loadFinished.connect(lambda ok: top_mother.update_status(self, ok))
+        self.browser.loadStarted.connect(lambda : top_mother.update_status(self.browser, InlineBrowser.Signals.started))
+        self.browser.loadProgress.connect(lambda progress: top_mother.update_status(self.browser, InlineBrowser.Signals.progress, progress))
+        self.browser.loadFinished.connect(lambda ok: top_mother.update_status(self.browser, InlineBrowser.Signals.finished, ok))
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -495,24 +499,26 @@ class ImagesDialog(Widget):
 
     ###########################################################
     def update_status(self, caller, *params):
-        if type(caller) is TabDictionary:
-            # ok = params[0]
-            # self.status_line.setText('{0}\n{1}, {2}, {3}'.format(self.status_line.text(), caller.name, caller.word, ok))
-            # for tab_widget in self.main_tab_widget.tab_dictionaries.findChildren(TabWidget):
-            #     if tab_widget.indexOf(caller) > -1:
-            #         tab_widget.tabBar().setTabTextColor(tab_widget.indexOf(caller), QtCore.Qt.darkGreen)
-
-            for tab_dictionary in self.main_tab_widget.tab_dictionaries.findChildren(TabWidget):
-                if tab_dictionary.indexOf(caller) > -1:
-                    tab_dictionary.tabBar().setTabTextColor(tab_dictionary.indexOf(caller), QtCore.Qt.darkGreen)
-                    all_done = True
-                    for i in range(tab_dictionary.count()):
-                        if tab_dictionary.tabBar().tabTextColor(i) != QtCore.Qt.darkGreen:
-                            all_done = False
-                            break
-                    if all_done:
-                        index = self.main_tab_widget.tab_dictionaries.indexOf(tab_dictionary)
-                        self.main_tab_widget.tab_dictionaries.tabBar().setTabTextColor(index, QtCore.Qt.darkGreen)
+        # dictionaries
+        if type(caller) is InlineBrowser:
+            tab_dictionary = caller.mother
+            name = tab_dictionary.name
+            tab_dictionaries = tab_dictionary.mother
+            index = tab_dictionaries.indexOf(tab_dictionary)
+            tab_bar = tab_dictionaries.tabBar()
+            signal = params[0]
+            if signal == InlineBrowser.Signals.started:
+                tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+            if signal == InlineBrowser.Signals.progress:
+                progress = params[1]
+                tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
+            if signal == InlineBrowser.Signals.finished:
+                ok = params[1]
+                tab_bar.setTabText(index, name)
+                if ok:
+                    tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
+                else:
+                    tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
 
     ###########################################################
     def stop_dictionaries(self):
