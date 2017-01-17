@@ -35,11 +35,28 @@ signal_update_status = QtCore.SIGNAL('')
 
 
 #####################################################################
+class Widget(QtGui.QWidget):
+    #####################################################################
+    def __init__(self, mother, parent=None):
+        super(Widget, self).__init__(parent)
+        self.mother = mother
+
+
+#####################################################################
+class TabWidget(QtGui.QTabWidget):
+    #####################################################################
+    def __init__(self, mother, closable=False, parent=None):
+        super(TabWidget, self).__init__(parent)
+        self.mother = mother
+        self.tabBar().setTabsClosable(closable)
+
+
+#####################################################################
 class InlineBrowser(QtWebKit.QWebView):
     #####################################################################
-    def __init__(self, main_dialog, parent=None):
+    def __init__(self, mother, parent=None):
         super(InlineBrowser, self).__init__(parent)
-        self.image_dialog = main_dialog
+        self.mother = mother
 
     #####################################################################
     def contextMenuEvent(self, event):
@@ -87,15 +104,18 @@ class InlineBrowser(QtWebKit.QWebView):
 
 
 #####################################################################
-class TabDictionary(QtGui.QWidget):
+class TabDictionary(Widget):
     #####################################################################
-    def __init__(self, name, web_address, main_dialog, parent=None):
-        super(TabDictionary, self).__init__(parent)
+    def __init__(self, name, web_address, mother, parent=None):
+        super(TabDictionary, self).__init__(mother, parent)
         self.name = name
         self.web_address = web_address
         self.word = None
-        self.browser = InlineBrowser(main_dialog)
-        self.browser.loadFinished.connect(lambda ok: main_dialog.update_status(self, ok))
+        self.browser = InlineBrowser(self)
+        top_mother = mother
+        while top_mother.mother:
+            top_mother = top_mother.mother
+        self.browser.loadFinished.connect(lambda ok: top_mother.update_status(self, ok))
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -289,10 +309,10 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
 
 #####################################################################
-class ImagesDialog(QtGui.QWidget):
+class ImagesDialog(Widget):
     # *************************
     def __init__(self, word, language, media_dir, parent=None):
-        super(ImagesDialog, self).__init__(parent)
+        super(ImagesDialog, self).__init__(None, parent)
 
         self.quit_request = False
         self.word = word
@@ -311,20 +331,20 @@ class ImagesDialog(QtGui.QWidget):
 
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
-        self.main_tab_widget = QtGui.QTabWidget()
+        self.main_tab_widget = TabWidget(mother=self)
         self.layout.addWidget(self.main_tab_widget)
         self.status_line = QtGui.QLabel(word)
         self.layout.addWidget(self.status_line)
 
         # dictionaries
-        self.main_tab_widget.tab_dictionaries = QtGui.QTabWidget()
+        self.main_tab_widget.tab_dictionaries = TabWidget(mother=self.main_tab_widget)
         self.main_tab_widget.addTab(self.main_tab_widget.tab_dictionaries, 'dictinoaries')
 
         # main word dictionaries
         self.add_dictionary_tabs(word, language)
 
         # images
-        self.main_tab_widget.tab_images = QtGui.QTabWidget()
+        self.main_tab_widget.tab_images = TabWidget(mother=self.main_tab_widget)
         self.main_tab_widget.addTab(self.main_tab_widget.tab_images, 'images')
 
         # main word images
@@ -334,28 +354,28 @@ class ImagesDialog(QtGui.QWidget):
     def add_dictionary_tabs(self, word, language):
         # english dictionaries
         if language == Language.english:
-            tab_english = QtGui.QTabWidget()
+            tab_english = TabWidget(mother=self.main_tab_widget.tab_dictionaries, closable=True)
             self.main_tab_widget.tab_dictionaries.addTab(tab_english, word)
             # english dictionaries
             tab_dictionaries = [
-                TabDictionary('google translate', 'https://translate.google.com/#en/fa/', self),
-                TabDictionary('vocabulary.com', 'https://www.vocabulary.com/dictionary/', self),
-                TabDictionary('webster', 'https://www.merriam-webster.com/dictionary/', self),
-                TabDictionary('oxford', 'https://en.oxforddictionaries.com/definition/us/', self)]
+                TabDictionary('google translate', 'https://translate.google.com/#en/fa/', mother=tab_english),
+                TabDictionary('vocabulary.com', 'https://www.vocabulary.com/dictionary/', mother=tab_english),
+                TabDictionary('webster', 'https://www.merriam-webster.com/dictionary/', mother=tab_english),
+                TabDictionary('oxford', 'https://en.oxforddictionaries.com/definition/us/', mother=tab_english)]
             for tab_dictionary in tab_dictionaries:
                 tab_english.addTab(tab_dictionary, tab_dictionary.name)
                 tab_dictionary.browse(word)
 
         # german dictionaries
         elif language == Language.german:
-            tab_german = QtGui.QTabWidget()
+            tab_german = TabWidget(mother=self.main_tab_widget.tab_dictionaries, closable=True)
             self.main_tab_widget.tab_dictionaries.addTab(tab_german, word + '-german')
             tab_dictionaries = [
-                TabDictionary('google translate', 'https://translate.google.com/#de/fa/', self),
-                TabDictionary('dict.cc', 'http://www.dict.cc/?s=', self),
-                TabDictionary('leo.org', 'http://dict.leo.org/german-english/', self),
-                TabDictionary('collins', 'https://www.collinsdictionary.com/dictionary/german-english/', self),
-                TabDictionary('duden', 'http://www.duden.de/suchen/dudenonline/', self)]
+                TabDictionary('google translate', 'https://translate.google.com/#de/fa/', mother=tab_german),
+                TabDictionary('dict.cc', 'http://www.dict.cc/?s=', mother=tab_german),
+                TabDictionary('leo.org', 'http://dict.leo.org/german-english/', mother=tab_german),
+                TabDictionary('collins', 'https://www.collinsdictionary.com/dictionary/german-english/', mother=tab_german),
+                TabDictionary('duden', 'http://www.duden.de/suchen/dudenonline/', mother=tab_german)]
             for tab_dictionary in tab_dictionaries:
                 tab_german.addTab(tab_dictionary, tab_dictionary.name)
                 tab_dictionary.browse(word)
@@ -364,12 +384,12 @@ class ImagesDialog(QtGui.QWidget):
     def add_image_tabs(self, word, language):
         # english images
         if language == Language.english:
-            tab_english = QtGui.QTabWidget()
+            tab_english = TabWidget(mother=self.main_tab_widget.tab_images, closable=True)
             self.main_tab_widget.tab_images.addTab(tab_english, word)
 
-            tab_english.tab_normal_images = QtGui.QWidget()
-            tab_english.tab_clip_arts = QtGui.QWidget()
-            tab_english.tab_line_drawings = QtGui.QWidget()
+            tab_english.tab_normal_images = Widget(mother=tab_english)
+            tab_english.tab_clip_arts = Widget(mother=tab_english)
+            tab_english.tab_line_drawings = Widget(mother=tab_english)
 
             tab_english.addTab(tab_english.tab_normal_images, 'normal')
             tab_english.addTab(tab_english.tab_clip_arts, 'clipart')
@@ -381,12 +401,12 @@ class ImagesDialog(QtGui.QWidget):
 
         # german images
         elif language == Language.german:
-            tab_german = QtGui.QTabWidget()
+            tab_german = TabWidget(mother=self.main_tab_widget.tab_images, closable=True)
             self.main_tab_widget.tab_images.addTab(tab_german, word + '-german')
 
-            tab_german.tab_normal_images = QtGui.QWidget()
-            tab_german.tab_clip_arts = QtGui.QWidget()
-            tab_german.tab_line_drawings = QtGui.QWidget()
+            tab_german.tab_normal_images = Widget(mother=tab_german)
+            tab_german.tab_clip_arts = Widget(mother=tab_german)
+            tab_german.tab_line_drawings = Widget(mother=tab_german)
 
             tab_german.addTab(tab_german.tab_normal_images, "normal")
             tab_german.addTab(tab_german.tab_clip_arts, "cliparts")
@@ -413,7 +433,7 @@ class ImagesDialog(QtGui.QWidget):
         # scroll area
         tab.scroll_area = QtGui.QScrollArea(tab)
         tab.scroll_area.setWidgetResizable(True)
-        tab.scroll_area_widget_contents = QtGui.QWidget(tab.scroll_area)
+        tab.scroll_area_widget_contents = Widget(mother=tab, parent=tab.scroll_area)
         tab.scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
         tab.scroll_area.setWidget(tab.scroll_area_widget_contents)
 
@@ -478,11 +498,11 @@ class ImagesDialog(QtGui.QWidget):
         if type(caller) is TabDictionary:
             # ok = params[0]
             # self.status_line.setText('{0}\n{1}, {2}, {3}'.format(self.status_line.text(), caller.name, caller.word, ok))
-            # for tab_widget in self.main_tab_widget.tab_dictionaries.findChildren(QtGui.QTabWidget):
+            # for tab_widget in self.main_tab_widget.tab_dictionaries.findChildren(TabWidget):
             #     if tab_widget.indexOf(caller) > -1:
             #         tab_widget.tabBar().setTabTextColor(tab_widget.indexOf(caller), QtCore.Qt.darkGreen)
 
-            for tab_dictionary in self.main_tab_widget.tab_dictionaries.findChildren(QtGui.QTabWidget):
+            for tab_dictionary in self.main_tab_widget.tab_dictionaries.findChildren(TabWidget):
                 if tab_dictionary.indexOf(caller) > -1:
                     tab_dictionary.tabBar().setTabTextColor(tab_dictionary.indexOf(caller), QtCore.Qt.darkGreen)
                     all_done = True
