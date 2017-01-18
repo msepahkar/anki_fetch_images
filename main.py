@@ -125,10 +125,13 @@ class InlineBrowser(QtWebKit.QWebView):
     #####################################################################
     def fetch_this_word(self, word, language, info_type):
         if word:
+            mother = self.mother
+            while mother.mother:
+                mother = mother.mother
             if info_type == InfoType.dictionary or info_type == InfoType.dictionary_image:
-                self.image_dialog.add_dictionary_tabs(word, language)
+                mother.add_dictionary_tabs(word, language)
             if info_type == InfoType.image or info_type == InfoType.dictionary_image:
-                self.image_dialog.add_image_tabs(word, language)
+                mother.add_image_tabs(word, language)
 
 
 #####################################################################
