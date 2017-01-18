@@ -29,9 +29,8 @@ NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 1
 
 processed_queue_lock = threading.Lock()
 processed_queue = []
-signal_image_fetched = QtCore.SIGNAL('')
-signal_image_urls_fetched = QtCore.SIGNAL('')
-signal_update_status = QtCore.SIGNAL('')
+signal_image_fetched = QtCore.SIGNAL('global.image_fetched')
+signal_image_urls_fetched = QtCore.SIGNAL('global.image_urls_fetched')
 
 
 #####################################################################
@@ -49,11 +48,38 @@ class TabWidget(QtGui.QTabWidget):
         super(TabWidget, self).__init__(parent)
         self.mother = mother
         self.tabBar().setTabsClosable(closable)
+        self.label = ''
+
+    #####################################################################
+    def addTab(self, QWidget, label):
+        super(TabWidget, self).addTab(QWidget, label)
+        QWidget.label = label
+
+    #####################################################################
+    def update_progress(self):
+        mother = self.mother
+        if type(mother) is not TabWidget:
+            return
+        index = mother.indexOf(self)
+        tab_bar = mother.tabBar()
+        tab_dictionaries = self.findChildren(TabDictionary)
+        progress = 0
+        for tab_dictionary in tab_dictionaries:
+            progress += tab_dictionary.progress
+        if len(tab_dictionaries) > 0:
+            progress /= len(tab_dictionaries)
+        if progress < 100:
+            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+            tab_bar.setTabText(index, self.label + ' ' + str(progress) + '%')
+        else:
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
+        mother.update_progress()
 
 
 #####################################################################
 class InlineBrowser(QtWebKit.QWebView):
-    Signals = enum(started=1, progress=2, finished=3)
+    SignalTypes = enum(started=1, progress=2, finished=3)
 
     #####################################################################
     def __init__(self, mother, parent=None):
@@ -114,12 +140,9 @@ class TabDictionary(Widget):
         self.web_address = web_address
         self.word = None
         self.browser = InlineBrowser(self)
-        top_mother = mother
-        while top_mother.mother:
-            top_mother = top_mother.mother
-        self.browser.loadStarted.connect(lambda : top_mother.update_status(self.browser, InlineBrowser.Signals.started))
-        self.browser.loadProgress.connect(lambda progress: top_mother.update_status(self.browser, InlineBrowser.Signals.progress, progress))
-        self.browser.loadFinished.connect(lambda ok: top_mother.update_status(self.browser, InlineBrowser.Signals.finished, ok))
+        self.browser.loadStarted.connect(lambda: self.update_status(InlineBrowser.SignalTypes.started))
+        self.browser.loadProgress.connect(lambda progress: self.update_status(InlineBrowser.SignalTypes.progress, progress))
+        self.browser.loadFinished.connect(lambda ok: self.update_status(InlineBrowser.SignalTypes.finished, ok))
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -129,7 +152,33 @@ class TabDictionary(Widget):
         word = word.split()
         word = '+'.join(word)
         url = self.web_address + word
+        self.total_frames = 0
         self.browser.load(QtCore.QUrl(url))
+
+    #####################################################################
+    def update_status(self, signal, param=None):
+        name = self.name
+        tab_dictionaries = self.mother
+        index = tab_dictionaries.indexOf(self)
+        tab_bar = tab_dictionaries.tabBar()
+        if signal == InlineBrowser.SignalTypes.started:
+            self.progress = 0
+            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+            tab_dictionaries.update_progress()
+        if signal == InlineBrowser.SignalTypes.progress:
+            progress = param
+            self.progress = progress
+            tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
+            tab_dictionaries.update_progress()
+        if signal == InlineBrowser.SignalTypes.finished:
+            ok = param
+            self.progress = 100
+            tab_bar.setTabText(index, name)
+            if ok:
+                tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
+            else:
+                tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
+            tab_dictionaries.update_progress()
 
 
 #####################################################################
@@ -499,26 +548,27 @@ class ImagesDialog(Widget):
 
     ###########################################################
     def update_status(self, caller, *params):
-        # dictionaries
-        if type(caller) is InlineBrowser:
-            tab_dictionary = caller.mother
-            name = tab_dictionary.name
-            tab_dictionaries = tab_dictionary.mother
-            index = tab_dictionaries.indexOf(tab_dictionary)
-            tab_bar = tab_dictionaries.tabBar()
-            signal = params[0]
-            if signal == InlineBrowser.Signals.started:
-                tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
-            if signal == InlineBrowser.Signals.progress:
-                progress = params[1]
-                tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
-            if signal == InlineBrowser.Signals.finished:
-                ok = params[1]
-                tab_bar.setTabText(index, name)
-                if ok:
-                    tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
-                else:
-                    tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
+        pass
+        # # dictionaries
+        # if type(caller) is InlineBrowser:
+        #     tab_dictionary = caller.mother
+        #     name = tab_dictionary.name
+        #     tab_dictionaries = tab_dictionary.mother
+        #     index = tab_dictionaries.indexOf(tab_dictionary)
+        #     tab_bar = tab_dictionaries.tabBar()
+        #     signal = params[0]
+        #     if signal == InlineBrowser.Signals.started:
+        #         tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+        #     if signal == InlineBrowser.Signals.progress:
+        #         progress = params[1]
+        #         tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
+        #     if signal == InlineBrowser.Signals.finished:
+        #         ok = params[1]
+        #         tab_bar.setTabText(index, name)
+        #         if ok:
+        #             tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
+        #         else:
+        #             tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
 
     ###########################################################
     def stop_dictionaries(self):
