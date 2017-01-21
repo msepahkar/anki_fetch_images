@@ -20,7 +20,11 @@ import PIL
 
 #####################################################################
 def enum(**enums):
+    items = [value for key, value in enums.iteritems()]
+    enums['names'] = dict((value, key) for key, value in enums.iteritems())
+    enums['items'] = items
     return type('Enum', (), enums)
+
 
 #####################################################################
 Language = enum(english=1, german=2)
@@ -129,12 +133,12 @@ class ThreadFetchImage(QtCore.QThread):
                 try:
                     f_name, header = urllib.urlretrieve(image_url, reporthook=self.url_retrieve_report)
                     image = Image.open(f_name).convert("RGB")
-                    self.emit(TabImage.signal_image_fetched, (image_number), image)
+                    self.emit(ImageTab.signal_image_fetched, (image_number), image)
                     print image_number, 'ok'
                 except ThreadQuitException:
                     print 'quitting thread ...'
                 except Exception as e:
-                    self.emit(TabImage.signal_image_ignored, (image_number))
+                    self.emit(ImageTab.signal_image_ignored, (image_number))
                     print image_number, 'bad image', e
             else:
                 print 'quitting thread ...'
@@ -151,9 +155,9 @@ class ThreadFetchImageUrls(QtCore.QThread):
     def __init__(self, word, language, image_type):
         super(ThreadFetchImageUrls, self).__init__(None)
         query = word
-        if image_type == TabImage.ImageType.clipart:
+        if image_type == ImageTab.ImageType.clipart:
             query += ' clipart'
-        elif image_type == TabImage.ImageType.line_drawing:
+        elif image_type == ImageTab.ImageType.line_drawing:
             query += ' line drawing'
         query = query.split()
         query = '+'.join(query)
@@ -176,6 +180,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
         if not self.quit_request:
             openned_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
 
+            self.emit(ImageTab.signal_urls_fetching_started)
             page = StringIO(openned_url.read())
 
             # find the directory the pronunciation
@@ -194,7 +199,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
             print len(image_urls), 'image urls fetched.'
             if not self.quit_request:
-                self.emit(TabImage.signal_urls_fetched, image_urls)
+                self.emit(ImageTab.signal_urls_fetched, image_urls)
             else:
                 print 'quitting url fetching thread ...'
         else:
@@ -325,10 +330,10 @@ class InlineBrowser(QtWebKit.QWebView):
 
 
 #####################################################################
-class TabDictionary(Widget):
+class DictionaryTab(Widget):
     #####################################################################
     def __init__(self, name, web_address, mother, parent=None):
-        super(TabDictionary, self).__init__(mother, parent)
+        super(DictionaryTab, self).__init__(mother, parent)
         self.name = name
         self.web_address = web_address
         self.word = None
@@ -380,18 +385,19 @@ class TabDictionary(Widget):
 
 
 #####################################################################
-class TabImage(Widget):
+class ImageTab(Widget):
     signal_image_fetched = QtCore.SIGNAL('TabImage.image_fetched')
     signal_image_ignored = QtCore.SIGNAL('TabImage.image_ignored')
     signal_urls_fetched = QtCore.SIGNAL('TabImage.image_urls_fetched')
-    SignalType = enum(urls_fetched=1, image_fetched=2, image_ignored=3)
+    signal_urls_fetching_started = QtCore.SIGNAL('TabImage.image_urls_fetching_started')
+    SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4)
     ImageType = enum(normal=1, clipart=2, line_drawing=3)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
     NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 1
 
     #####################################################################
     def __init__(self, word, language, image_type, mother, parent=None):
-        super(TabImage, self).__init__(mother, parent)
+        super(ImageTab, self).__init__(mother, parent)
         self.quit_request = False
         self.n_urls = 0
         self.n_fetched = 0
@@ -402,10 +408,11 @@ class TabImage(Widget):
         self.add_layout()
         self.threads_fetch_image = []
         self.thread_fetch_image_urls = ThreadFetchImageUrls(self.word, self.language, self.image_type)
-        self.connect(self.thread_fetch_image_urls, TabImage.signal_urls_fetched, self.fetch_images)
-        self.connect(self.thread_fetch_image_urls, TabImage.signal_urls_fetched,
-                     lambda urls: self.update_status(TabImage.SignalType.urls_fetched, urls))
-        self.thread_fetch_image_urls.start()
+        self.connect(self.thread_fetch_image_urls, ImageTab.signal_urls_fetched, self.fetch_images)
+        self.connect(self.thread_fetch_image_urls, ImageTab.signal_urls_fetched,
+                     lambda urls: self.update_status(ImageTab.SignalType.urls_fetched, urls))
+        self.connect(self.thread_fetch_image_urls, ImageTab.signal_urls_fetching_started,
+                     lambda : self.update_status(ImageTab.SignalType.urls_fetching_started))
 
     ###########################################################
     @property
@@ -443,13 +450,13 @@ class TabImage(Widget):
             return
         lock = threading.Lock()
         # threads
-        for i in range(TabImage.NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL):
+        for i in range(ImageTab.NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL):
             self.threads_fetch_image.append(ThreadFetchImage(image_urls, lock))
-            self.connect(self.threads_fetch_image[-1], TabImage.signal_image_fetched, self.add_fetched_image)
-            self.connect(self.threads_fetch_image[-1], TabImage.signal_image_fetched,
-                         lambda image_number, image: self.update_status(TabImage.SignalType.image_fetched, image_number))
-            self.connect(self.threads_fetch_image[-1], TabImage.signal_image_ignored,
-                         lambda image_number: self.update_status(TabImage.SignalType.image_ignored, image_number))
+            self.connect(self.threads_fetch_image[-1], ImageTab.signal_image_fetched, self.add_fetched_image)
+            self.connect(self.threads_fetch_image[-1], ImageTab.signal_image_fetched,
+                         lambda image_number, image: self.update_status(ImageTab.SignalType.image_fetched, image_number))
+            self.connect(self.threads_fetch_image[-1], ImageTab.signal_image_ignored,
+                         lambda image_number: self.update_status(ImageTab.SignalType.image_ignored, image_number))
             self.threads_fetch_image[-1].start()
 
     ###########################################################
@@ -464,7 +471,7 @@ class TabImage(Widget):
         view.fit()
         done = False
         for horizontal_layout in self.horizontal_layouts:
-            if horizontal_layout.count() >= TabImage.NUMBER_OF_IMAGES_IN_EACH_RAW:
+            if horizontal_layout.count() >= ImageTab.NUMBER_OF_IMAGES_IN_EACH_RAW:
                 continue
             horizontal_layout.addWidget(view)
             done = True
@@ -479,27 +486,34 @@ class TabImage(Widget):
         tab_images = self.mother
         index = tab_images.indexOf(self)
         tab_bar = tab_images.tabBar()
-        if signal_type == TabImage.SignalType.urls_fetched:
-            urls = param
-            self.n_urls = len(urls)
-            self.n_fetched = 0
-            self.n_ignored = 0
-            tab_bar.setTabText(index, self.word + ' ' + str(self.progress) + '%')
+        if signal_type == ImageTab.SignalType.urls_fetching_started:
+            tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
             tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
             tab_images.update_progress()
-        if signal_type == TabImage.SignalType.image_fetched:
+        if signal_type == ImageTab.SignalType.urls_fetched:
+            urls = param
+            self.n_urls = len(urls)
+            if self.n_urls == 0:
+                tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
+                tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
+            self.n_fetched = 0
+            self.n_ignored = 0
+            tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
+            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+            tab_images.update_progress()
+        if signal_type == ImageTab.SignalType.image_fetched:
             self.n_fetched += 1
             if self.progress < 100:
-                tab_bar.setTabText(index, self.word + ' ' + str(self.progress) + '%')
+                tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
                 tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
             else:
-                tab_bar.setTabText(index, self.word)
+                tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
                 tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
 
             tab_images.update_progress()
-        if signal_type == TabImage.SignalType.image_ignored:
+        if signal_type == ImageTab.SignalType.image_ignored:
             self.n_ignored += 1
-            tab_bar.setTabText(index, self.word + ' ' + str(self.progress) + '%')
+            tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
             tab_images.update_progress()
         # if signal_type == InlineBrowser.SignalTypes.finished:
         #     ok = param
@@ -527,6 +541,10 @@ class TabImage(Widget):
             thread.terminate()
         print('image tab {} {} terminated'.format(self.word, self.image_type))
 
+    ###########################################################
+    def start_fetching(self):
+        self.thread_fetch_image_urls.start()
+
 
 #####################################################################
 class MainDialog(Dialog):
@@ -543,16 +561,8 @@ class MainDialog(Dialog):
         self.setWindowTitle(word)
         self.resize(1000, 1000)
 
-        self.layout = QtGui.QVBoxLayout()
-        self.setLayout(self.layout)
-        self.button_next = QtGui.QPushButton()
-        self.button_previous = QtGui.QPushButton()
-        self.layout.addWidget(self.button_next)
-        self.layout.addWidget(self.button_previous)
-        self.main_tab_widget = TabWidgetProgress(mother=self)
-        self.layout.addWidget(self.main_tab_widget)
-        self.status_line = QtGui.QLabel(word)
-        self.layout.addWidget(self.status_line)
+        # layout
+        self.add_layout()
 
         # word fields
         self.main_tab_widget.tab_word_fields = Widget(self.main_tab_widget)
@@ -573,6 +583,19 @@ class MainDialog(Dialog):
         self.add_image_tabs(word, language)
 
     ###########################################################
+    def add_layout(self):
+        self.layout = QtGui.QVBoxLayout()
+        self.setLayout(self.layout)
+        self.button_next = QtGui.QPushButton()
+        self.button_previous = QtGui.QPushButton()
+        self.layout.addWidget(self.button_next)
+        self.layout.addWidget(self.button_previous)
+        self.main_tab_widget = TabWidgetProgress(mother=self)
+        self.layout.addWidget(self.main_tab_widget)
+        self.status_line = QtGui.QLabel('no status')
+        self.layout.addWidget(self.status_line)
+
+    ###########################################################
     def add_dictionary_tabs(self, word, language):
         # english dictionaries
         if language == Language.english:
@@ -580,10 +603,10 @@ class MainDialog(Dialog):
             self.main_tab_widget.tab_dictionaries.addTab(tab_english, word)
             # english dictionaries
             tab_dictionaries = [
-                TabDictionary('google translate', 'https://translate.google.com/#en/fa/', mother=tab_english),
-                TabDictionary('vocabulary.com', 'https://www.vocabulary.com/dictionary/', mother=tab_english),
-                TabDictionary('webster', 'https://www.merriam-webster.com/dictionary/', mother=tab_english),
-                TabDictionary('oxford', 'https://en.oxforddictionaries.com/definition/us/', mother=tab_english)]
+                DictionaryTab('google translate', 'https://translate.google.com/#en/fa/', mother=tab_english),
+                DictionaryTab('vocabulary.com', 'https://www.vocabulary.com/dictionary/', mother=tab_english),
+                DictionaryTab('webster', 'https://www.merriam-webster.com/dictionary/', mother=tab_english),
+                DictionaryTab('oxford', 'https://en.oxforddictionaries.com/definition/us/', mother=tab_english)]
             for tab_dictionary in tab_dictionaries:
                 tab_english.addTab(tab_dictionary, tab_dictionary.name)
                 tab_dictionary.browse(word)
@@ -593,11 +616,11 @@ class MainDialog(Dialog):
             tab_german = TabWidgetProgress(mother=self.main_tab_widget.tab_dictionaries, closable=True)
             self.main_tab_widget.tab_dictionaries.addTab(tab_german, word)
             tab_dictionaries = [
-                TabDictionary('google translate', 'https://translate.google.com/#de/fa/', mother=tab_german),
-                TabDictionary('dict.cc', 'http://www.dict.cc/?s=', mother=tab_german),
-                TabDictionary('leo.org', 'http://dict.leo.org/german-english/', mother=tab_german),
-                TabDictionary('collins', 'https://www.collinsdictionary.com/dictionary/german-english/', mother=tab_german),
-                TabDictionary('duden', 'http://www.duden.de/suchen/dudenonline/', mother=tab_german)]
+                DictionaryTab('google translate', 'https://translate.google.com/#de/fa/', mother=tab_german),
+                DictionaryTab('dict.cc', 'http://www.dict.cc/?s=', mother=tab_german),
+                DictionaryTab('leo.org', 'http://dict.leo.org/german-english/', mother=tab_german),
+                DictionaryTab('collins', 'https://www.collinsdictionary.com/dictionary/german-english/', mother=tab_german),
+                DictionaryTab('duden', 'http://www.duden.de/suchen/dudenonline/', mother=tab_german)]
             for tab_dictionary in tab_dictionaries:
                 tab_german.addTab(tab_dictionary, tab_dictionary.name)
                 tab_dictionary.browse(word)
@@ -607,21 +630,18 @@ class MainDialog(Dialog):
         tab = TabWidgetProgress(mother=self.main_tab_widget.tab_images, closable=True)
         self.main_tab_widget.tab_images.addTab(tab, word)
 
-        tab_normal_images = TabImage(word, language, TabImage.ImageType.normal, mother=tab)
-        tab_clip_arts = TabImage(word, language, TabImage.ImageType.clipart, mother=tab)
-        tab_line_drawings = TabImage(word, language, TabImage.ImageType.line_drawing, mother=tab)
-
-        tab.addTab(tab_normal_images, 'normal')
-        tab.addTab(tab_clip_arts, 'clipart')
-        tab.addTab(tab_line_drawings, 'line drawing')
+        for image_type in ImageTab.ImageType.items:
+            image_tab = ImageTab(word, language, image_type, mother=tab)
+            tab.addTab(image_tab, ImageTab.ImageType.names[image_type])
+            image_tab.start_fetching()
 
     ###########################################################
     def closeEvent(self, QCloseEvent):
-        for tab_image in self.findChildren(TabImage):
+        for tab_image in self.findChildren(ImageTab):
             tab_image.quit()
-        for tab_dictionary in self.findChildren(TabDictionary):
+        for tab_dictionary in self.findChildren(DictionaryTab):
             tab_dictionary.stop()
-        for tab_image in self.findChildren(TabImage):
+        for tab_image in self.findChildren(ImageTab):
             tab_image.terminate()
 
 
