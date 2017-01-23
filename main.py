@@ -178,9 +178,9 @@ class ThreadFetchImageUrls(QtCore.QThread):
         }
 
         if not self.quit_request:
+            self.emit(ImageTab.signal_urls_fetching_started)
             openned_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
 
-            self.emit(ImageTab.signal_urls_fetching_started)
             page = StringIO(openned_url.read())
 
             # find the directory the pronunciation
@@ -242,11 +242,104 @@ class TabWidget(QtGui.QTabWidget):
 
 
 #####################################################################
-class TabWidgetProgress(TabWidget):
+class OperationResult:
+    started_color = QtCore.Qt.yellow
+    weak_in_progress_color = QtCore.Qt.yellow
+    in_progress_color = QtCore.Qt.darkYellow
+    weak_succeeded_color = QtCore.Qt.green
+    succeeded_color = QtCore.Qt.darkGreen
+    failed_color = QtCore.Qt.darkRed
+    #####################################################################
+    def __init__(self):
+        self._started = False
+        self._in_progress = False
+        self._succeeded = False
+        self._failed = False
+        self._progress = 0
+
+    #####################################################################
+    @property
+    def started(self):
+        return self._started
+
+    #####################################################################
+    @started.setter
+    def started(self, value):
+        if value:
+            self._started = True
+            self._in_progress = False
+            self._succeeded = False
+            self._failed = False
+        else:
+            self._started = False
+
+    #####################################################################
+    @property
+    def in_progress(self):
+        return self._in_progress
+
+    #####################################################################
+    @in_progress.setter
+    def in_progress(self, value):
+        if value:
+            self._started = False
+            self._in_progress = True
+            self._succeeded = False
+            self._failed = False
+        else:
+            self._in_progress = False
+
+    #####################################################################
+    @property
+    def progress(self):
+        return self._progress
+
+    #####################################################################
+    @progress.setter
+    def progress(self, value):
+        self._progress = value
+        if value == 100:
+            self.succeeded = True
+
+    #####################################################################
+    @property
+    def succeeded(self):
+        return self._succeeded
+
+    #####################################################################
+    @succeeded.setter
+    def succeeded(self, value):
+        if value:
+            self._started = False
+            self._in_progress = False
+            self._succeeded = True
+            self._failed = False
+        else:
+            self._succeeded = False
+
+    #####################################################################
+    @property
+    def failed(self):
+        return self._failed
+
+    #####################################################################
+    @failed.setter
+    def failed(self, value):
+        if value:
+            self._started = False
+            self._in_progress = False
+            self._succeeded = False
+            self._failed = True
+        else:
+            self._failed = False
+
+
+#####################################################################
+class TabWidgetProgress(TabWidget, OperationResult):
     #####################################################################
     def __init__(self, mother, closable=False, parent=None):
-        super(TabWidgetProgress, self).__init__(mother, closable, parent)
-        self.progress = 0
+        TabWidget.__init__(self, mother, closable, parent)
+        OperationResult.__init__(self)
 
     #####################################################################
     def update_progress(self):
@@ -255,19 +348,78 @@ class TabWidgetProgress(TabWidget):
             return
         index = mother.indexOf(self)
         tab_bar = mother.tabBar()
-        tabs = self.findChildren(Widget)
-        progress = 0
-        if self.count() > 0:
-            for i in range(self.count()):
-                progress += self.widget(i).progress
-            progress /= self.count()
-        if progress < 100:
-            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
-            tab_bar.setTabText(index, self.label + ' ' + str(progress) + '%')
-        else:
+
+        self.failed = False
+        self.succeeded = False
+        self.in_progress = False
+        self.progress = 0
+
+        total_started = 0
+        total_failed = 0
+        total_succeeded = 0
+        total_in_progress = 0
+
+        for i in range(self.count()):
+            if self.widget(i).started:
+                total_started += 1
+            if self.widget(i).failed:
+                total_failed += 1
+            if self.widget(i).succeeded:
+                total_succeeded += 1
+            if self.widget(i).in_progress:
+                total_in_progress += 1
+                self.progress += self.widget(i).progress
+
+        if total_in_progress > 0:
+            self.progress /= total_in_progress
+
+        # all started
+        if total_started == self.count():
+            self.started = True
             tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
-        self.progress = progress
+            tab_bar.setTabTextColor(index, OperationResult.started_color)
+        # all failed
+        elif total_failed == self.count():
+            self.failed = True
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, OperationResult.failed_color)
+        # all succeeded
+        elif total_succeeded == self.count():
+            self.succeeded = True
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+        # all in progress
+        elif total_in_progress == self.count():
+            self.in_progress = True
+            tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
+            tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+        # at least one in progress
+        elif total_in_progress > 0:
+            self.in_progress = True
+            tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
+            # any failed or any started?
+            if total_failed > 0 or total_started > 0:
+                tab_bar.setTabTextColor(index, OperationResult.weak_in_progress_color)
+            # no fail and no started
+            else:
+                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+        # nothing in progress, but at least one started
+        elif total_started > 0:
+            self.started = True
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, OperationResult.started_color)
+        # nothing in progress and nothing started, but at least one succeeded
+        elif total_succeeded > 0:
+            self.succeeded = True
+            # any failed?
+            if total_failed > 0:
+                tab_bar.setTabText(index, self.label)
+                tab_bar.setTabTextColor(index, OperationResult.weak_succeeded_color)
+            # no fail
+            else:
+                tab_bar.setTabText(index, self.label)
+                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+
         mother.update_progress()
 
 
@@ -330,10 +482,11 @@ class InlineBrowser(QtWebKit.QWebView):
 
 
 #####################################################################
-class DictionaryTab(Widget):
+class DictionaryTab(Widget, OperationResult):
     #####################################################################
     def __init__(self, name, web_address, mother, parent=None):
-        super(DictionaryTab, self).__init__(mother, parent)
+        Widget.__init__(self, mother, parent)
+        OperationResult.__init__(self)
         self.name = name
         self.web_address = web_address
         self.word = None
@@ -361,21 +514,25 @@ class DictionaryTab(Widget):
         tab_bar = tab_dictionaries.tabBar()
         if singal_type == InlineBrowser.SignalType.started:
             self.progress = 0
-            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+            tab_bar.setTabTextColor(index, OperationResult.started_color)
             tab_dictionaries.update_progress()
         if singal_type == InlineBrowser.SignalType.progress:
             progress = param
+            self.in_progress = True
             self.progress = progress
             tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
+            tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
             tab_dictionaries.update_progress()
         if singal_type == InlineBrowser.SignalType.finished:
             ok = param
-            self.progress = 100
             tab_bar.setTabText(index, name)
             if ok:
-                tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
+                self.progress = 100
+                self.succeeded = True
+                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
             else:
-                tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
+                self.failed = True
+                tab_bar.setTabTextColor(index, OperationResult.failed_color)
             tab_dictionaries.update_progress()
 
     #####################################################################
@@ -385,7 +542,7 @@ class DictionaryTab(Widget):
 
 
 #####################################################################
-class ImageTab(Widget):
+class ImageTab(Widget, OperationResult):
     signal_image_fetched = QtCore.SIGNAL('TabImage.image_fetched')
     signal_image_ignored = QtCore.SIGNAL('TabImage.image_ignored')
     signal_urls_fetched = QtCore.SIGNAL('TabImage.image_urls_fetched')
@@ -393,11 +550,12 @@ class ImageTab(Widget):
     SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4)
     ImageType = enum(normal=1, clipart=2, line_drawing=3)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
-    NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 1
+    NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 5
 
     #####################################################################
     def __init__(self, word, language, image_type, mother, parent=None):
-        super(ImageTab, self).__init__(mother, parent)
+        Widget.__init__(self, mother, parent)
+        OperationResult.__init__(self)
         self.quit_request = False
         self.n_urls = 0
         self.n_fetched = 0
@@ -413,14 +571,6 @@ class ImageTab(Widget):
                      lambda urls: self.update_status(ImageTab.SignalType.urls_fetched, urls))
         self.connect(self.thread_fetch_image_urls, ImageTab.signal_urls_fetching_started,
                      lambda : self.update_status(ImageTab.SignalType.urls_fetching_started))
-
-    ###########################################################
-    @property
-    def progress(self):
-        if self.n_urls == 0:
-            return 0
-        progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
-        return progress
 
     ###########################################################
     def add_layout(self):
@@ -446,7 +596,7 @@ class ImageTab(Widget):
 
     ###########################################################
     def fetch_images(self, image_urls):
-        if self.quit_request:
+        if self.quit_request or len(image_urls) == 0:
             return
         lock = threading.Lock()
         # threads
@@ -486,44 +636,49 @@ class ImageTab(Widget):
         tab_images = self.mother
         index = tab_images.indexOf(self)
         tab_bar = tab_images.tabBar()
+
         if signal_type == ImageTab.SignalType.urls_fetching_started:
+            self.started = True
+            self.n_urls = 0
+            self.n_fetched = 0
+            self.n_ignored = 0
+            self.progress = 0
             tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
-            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
-            tab_images.update_progress()
+            tab_bar.setTabTextColor(index, OperationResult.started_color)
+
         if signal_type == ImageTab.SignalType.urls_fetched:
             urls = param
             self.n_urls = len(urls)
             if self.n_urls == 0:
+                self.failed = True
                 tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
-                tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
-            self.n_fetched = 0
-            self.n_ignored = 0
-            tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
-            tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
-            tab_images.update_progress()
+                tab_bar.setTabTextColor(index, OperationResult.failed_color)
+            else:
+                self.in_progress = True
+                tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
+                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+
         if signal_type == ImageTab.SignalType.image_fetched:
             self.n_fetched += 1
+            self.progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
             if self.progress < 100:
                 tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
-                tab_bar.setTabTextColor(index, QtCore.Qt.darkYellow)
+                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
             else:
                 tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
-                tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
+                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
 
-            tab_images.update_progress()
         if signal_type == ImageTab.SignalType.image_ignored:
             self.n_ignored += 1
-            tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
-            tab_images.update_progress()
-        # if signal_type == InlineBrowser.SignalTypes.finished:
-        #     ok = param
-        #     self.progress = 100
-        #     tab_bar.setTabText(index, name)
-        #     if ok:
-        #         tab_bar.setTabTextColor(index, QtCore.Qt.darkGreen)
-        #     else:
-        #         tab_bar.setTabTextColor(index, QtCore.Qt.darkRed)
-        #     tab_images.update_progress()
+            self.progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
+            if self.progress < 100:
+                tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
+                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+            else:
+                tab_bar.setTabText(index, ImageTab.ImageType.names[self.image_type])
+                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+
+        tab_images.update_progress()
 
     ###########################################################
     def quit(self):
@@ -544,6 +699,7 @@ class ImageTab(Widget):
     ###########################################################
     def start_fetching(self):
         self.thread_fetch_image_urls.start()
+        self.started = True
 
 
 #####################################################################
