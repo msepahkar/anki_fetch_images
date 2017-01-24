@@ -494,6 +494,7 @@ class DictionaryTab(Widget, OperationResult):
         self.browser.loadStarted.connect(lambda: self.update_status(InlineBrowser.SignalType.started))
         self.browser.loadProgress.connect(lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
         self.browser.loadFinished.connect(lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
+        self.browser.page().networkAccessManager().finished.connect(self.fetch_media)
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -505,6 +506,13 @@ class DictionaryTab(Widget, OperationResult):
         url = self.web_address + word
         self.total_frames = 0
         self.browser.load(QtCore.QUrl(url))
+
+    #####################################################################
+    def fetch_media(self, reply):
+        url = reply.url().toString()
+        if url.endsWith('mp3') or url.endsWith('wav') or url.contains(self.word):
+            print(reply.url())
+        # urllib.request.urlretrieve(url, '/home/mehdi/Desktop/test')
 
     #####################################################################
     def update_status(self, singal_type, param=None):
@@ -736,16 +744,19 @@ class MainDialog(Dialog):
         self.main_tab_widget.addTab(self.main_tab_widget.tab_images, 'images')
 
         # main word images
-        self.add_image_tabs(word, language)
+        # self.add_image_tabs(word, language)
 
     ###########################################################
     def add_layout(self):
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
-        self.button_next = QtGui.QPushButton()
-        self.button_previous = QtGui.QPushButton()
-        self.layout.addWidget(self.button_next)
-        self.layout.addWidget(self.button_previous)
+        self.button_next = QtGui.QPushButton('Next')
+        self.button_previous = QtGui.QPushButton('Previous')
+        layout = QtGui.QHBoxLayout()
+        layout.addWidget(self.button_previous)
+        layout.addWidget(self.button_next)
+        layout.addStretch()
+        self.layout.addLayout(layout)
         self.main_tab_widget = TabWidgetProgress(mother=self)
         self.layout.addWidget(self.main_tab_widget)
         self.status_line = QtGui.QLabel('no status')
