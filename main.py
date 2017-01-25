@@ -5,6 +5,7 @@ import requests
 import re
 import urllib2, urllib
 import os
+import shutil
 import cookielib
 import json
 from StringIO import StringIO
@@ -208,6 +209,34 @@ class ThreadFetchImageUrls(QtCore.QThread):
     # *************************
     def quit(self):
         self.quit_request = True
+
+
+#####################################################################
+class ThreadCheckResourceType(QtCore.QThread):
+    # *************************
+    def __init__(self, url):
+        super(ThreadCheckResourceType, self).__init__(None)
+        self.url = url
+
+    # *************************
+    def run(self):
+        try:
+            header = {
+                'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
+            }
+
+            response = urllib2.urlopen(urllib2.Request(self.url, headers=header))
+
+            maintype = response.headers['Content-Type'].split(';')[0].lower()
+
+            if 'audio' in maintype:
+                self.emit(DictionaryTab.signal_resource_type_fetched, DictionaryTab.ResourceType.audio)
+            if 'video' in maintype:
+                self.emit(DictionaryTab.signal_resource_type_fetched, DictionaryTab.ResourceType.video)
+            if 'image' in maintype:
+                self.emit(DictionaryTab.signal_resource_type_fetched, DictionaryTab.ResourceType.image)
+        except:
+            pass
 
 
 #####################################################################
@@ -483,18 +512,31 @@ class InlineBrowser(QtWebKit.QWebView):
 
 #####################################################################
 class DictionaryTab(Widget, OperationResult):
+    dictionaries = dict()
+    dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/'),
+                                      ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
+                                      ('webster', 'https://www.merriam-webster.com/dictionary/'),
+                                      ('oxford', 'https://en.oxforddictionaries.com/definition/us/')]
+    dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
+                                     ('dict.cc', 'http://www.dict.cc/?s='),
+                                     ('leo.org', 'http://dict.leo.org/german-english/'),
+                                     ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
+                                     ('duden', 'http://www.duden.de/suchen/dudenonline/')]
+    ResourceType = enum(audio=1, video=2, image=3)
+    signal_resource_type_fetched = QtCore.SIGNAL('DictionaryTab.resource_type_fetched')
+
     #####################################################################
-    def __init__(self, name, web_address, mother, parent=None):
+    def __init__(self, address_pair, mother, parent=None):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
-        self.name = name
-        self.web_address = web_address
+        self.name = address_pair[0]
+        self.web_address = address_pair[1]
         self.word = None
         self.browser = InlineBrowser(self)
         self.browser.loadStarted.connect(lambda: self.update_status(InlineBrowser.SignalType.started))
         self.browser.loadProgress.connect(lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
         self.browser.loadFinished.connect(lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
-        self.browser.page().networkAccessManager().finished.connect(self.fetch_media)
+        self.browser.page().networkAccessManager().finished.connect(self.url_discovered)
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -508,11 +550,43 @@ class DictionaryTab(Widget, OperationResult):
         self.browser.load(QtCore.QUrl(url))
 
     #####################################################################
-    def fetch_media(self, reply):
-        url = reply.url().toString()
-        if url.endsWith('mp3') or url.endsWith('wav') or url.contains(self.word):
-            print(reply.url())
-        # urllib.request.urlretrieve(url, '/home/mehdi/Desktop/test')
+    def url_discovered(self, reply):
+        url = str(reply.url().toString())
+
+        headers = reply.rawHeaderPairs()
+        if headers[0][0].contains('Content-Type'):
+            print headers[0][1]
+        # thread = ThreadCheckResourceType(url)
+        # self.connect(thread, DictionaryTab.signal_resource_type_fetched, self.print_resource_type)
+        # thread.run()
+        #
+        # res = urllib.urlopen(url)
+        # http_message = res.info()
+        # full = http_message.type  # 'text/plain'
+        # main = http_message.maintype  # 'text'
+        #
+        # if full.startswith('audio'):
+        #     print full
+        #     print url
+        #
+        #     header = {
+        #         'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
+        #     }
+        #
+        #     response = urllib2.urlopen(urllib2.Request(url, headers=header))
+        #
+        #     # maintype = response.headers['Content-Type'].split(';')[0].lower()
+        #
+        #     print('reply url  :', reply.url().toString())
+        #
+        #     # print('request url:', reply.request().url().toString())
+        #
+        #     # page = StringIO(response.read())
+
+    #####################################################################
+    def print_resource_type(self, resource_type):
+        print(DictionaryTab.ResourceType.names[resource_type])
+
 
     #####################################################################
     def update_status(self, singal_type, param=None):
@@ -551,10 +625,10 @@ class DictionaryTab(Widget, OperationResult):
 
 #####################################################################
 class ImageTab(Widget, OperationResult):
-    signal_image_fetched = QtCore.SIGNAL('TabImage.image_fetched')
-    signal_image_ignored = QtCore.SIGNAL('TabImage.image_ignored')
-    signal_urls_fetched = QtCore.SIGNAL('TabImage.image_urls_fetched')
-    signal_urls_fetching_started = QtCore.SIGNAL('TabImage.image_urls_fetching_started')
+    signal_image_fetched = QtCore.SIGNAL('ImageTab.image_fetched')
+    signal_image_ignored = QtCore.SIGNAL('ImageTab.image_ignored')
+    signal_urls_fetched = QtCore.SIGNAL('ImageTab.image_urls_fetched')
+    signal_urls_fetching_started = QtCore.SIGNAL('ImageTab.image_urls_fetching_started')
     SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4)
     ImageType = enum(normal=1, clipart=2, line_drawing=3)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
@@ -765,32 +839,12 @@ class MainDialog(Dialog):
     ###########################################################
     def add_dictionary_tabs(self, word, language):
         # english dictionaries
-        if language == Language.english:
-            tab_english = TabWidgetProgress(mother=self.main_tab_widget.tab_dictionaries, closable=True)
-            self.main_tab_widget.tab_dictionaries.addTab(tab_english, word)
-            # english dictionaries
-            tab_dictionaries = [
-                DictionaryTab('google translate', 'https://translate.google.com/#en/fa/', mother=tab_english),
-                DictionaryTab('vocabulary.com', 'https://www.vocabulary.com/dictionary/', mother=tab_english),
-                DictionaryTab('webster', 'https://www.merriam-webster.com/dictionary/', mother=tab_english),
-                DictionaryTab('oxford', 'https://en.oxforddictionaries.com/definition/us/', mother=tab_english)]
-            for tab_dictionary in tab_dictionaries:
-                tab_english.addTab(tab_dictionary, tab_dictionary.name)
-                tab_dictionary.browse(word)
-
-        # german dictionaries
-        elif language == Language.german:
-            tab_german = TabWidgetProgress(mother=self.main_tab_widget.tab_dictionaries, closable=True)
-            self.main_tab_widget.tab_dictionaries.addTab(tab_german, word)
-            tab_dictionaries = [
-                DictionaryTab('google translate', 'https://translate.google.com/#de/fa/', mother=tab_german),
-                DictionaryTab('dict.cc', 'http://www.dict.cc/?s=', mother=tab_german),
-                DictionaryTab('leo.org', 'http://dict.leo.org/german-english/', mother=tab_german),
-                DictionaryTab('collins', 'https://www.collinsdictionary.com/dictionary/german-english/', mother=tab_german),
-                DictionaryTab('duden', 'http://www.duden.de/suchen/dudenonline/', mother=tab_german)]
-            for tab_dictionary in tab_dictionaries:
-                tab_german.addTab(tab_dictionary, tab_dictionary.name)
-                tab_dictionary.browse(word)
+        tab = TabWidgetProgress(mother=self.main_tab_widget.tab_dictionaries, closable=True)
+        self.main_tab_widget.tab_dictionaries.addTab(tab, word)
+        for dictionary in DictionaryTab.dictionaries[language]:
+            dictionary_tab = DictionaryTab(dictionary, mother=tab)
+            tab.addTab(dictionary_tab, dictionary_tab.name)
+            dictionary_tab.browse(word)
 
     ###########################################################
     def add_image_tabs(self, word, language):
