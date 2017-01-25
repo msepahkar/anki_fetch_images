@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import time
 import math
 from bs4 import BeautifulSoup
@@ -395,12 +397,13 @@ class TabWidgetProgress(TabWidget, OperationResult):
                 total_failed += 1
             if self.widget(i).succeeded:
                 total_succeeded += 1
+                self.progress += 100
             if self.widget(i).in_progress:
                 total_in_progress += 1
                 self.progress += self.widget(i).progress
 
-        if total_in_progress > 0:
-            self.progress /= total_in_progress
+        if total_in_progress + total_succeeded > 0:
+            self.progress /= (total_in_progress + total_succeeded)
 
         # all started
         if total_started == self.count():
@@ -511,18 +514,96 @@ class InlineBrowser(QtWebKit.QWebView):
 
 
 #####################################################################
+class Browser(Widget):
+    #####################################################################
+    def __init__(self, mother):
+        super(Browser, self).__init__(mother)
+
+        header_layout = QtGui.QHBoxLayout()
+
+        button = QtGui.QPushButton(u"◀")
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.backward)
+
+        button = QtGui.QPushButton(u"▶")
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.forward)
+
+        button = QtGui.QPushButton(u'✘')
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.stop)
+
+        button = QtGui.QPushButton(u"↻")
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.reload)
+
+        self.address_line = QtGui.QLineEdit()
+        header_layout.addWidget(self.address_line)
+
+        button = QtGui.QPushButton(u'✔')
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.go)
+
+        layout = QtGui.QVBoxLayout()
+        layout.addLayout(header_layout)
+
+        self.inline_browser = InlineBrowser(self)
+        layout.addWidget(self.inline_browser)
+        self.inline_browser.urlChanged.connect(self.update_address_line)
+
+        self.setLayout(layout)
+
+    #####################################################################
+    def stop(self):
+        self.inline_browser.stop()
+
+    #####################################################################
+    def forward(self):
+        self.inline_browser.forward()
+
+    #####################################################################
+    def backward(self):
+        self.inline_browser.back()
+
+    #####################################################################
+    def reload(self):
+        self.inline_browser.reload()
+
+    #####################################################################
+    def update_address_line(self, url):
+        self.address_line.setText(url.toString())
+
+    #####################################################################
+    def go(self):
+        url = QtCore.QUrl(self.address_line.text())
+        self.inline_browser.load(url)
+
+#####################################################################
 class DictionaryTab(Widget, OperationResult):
     dictionaries = dict()
     dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/'),
                                       ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
                                       ('webster', 'https://www.merriam-webster.com/dictionary/'),
-                                      ('oxford', 'https://en.oxforddictionaries.com/definition/us/')]
+                                      ('oxford', 'https://en.oxforddictionaries.com/definition/us/'),
+                                      ('forvo', 'https://forvo.com/search/')]
     dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
                                      ('dict.cc', 'http://www.dict.cc/?s='),
                                      ('leo.org', 'http://dict.leo.org/german-english/'),
                                      ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
-                                     ('duden', 'http://www.duden.de/suchen/dudenonline/')]
+                                     ('duden', 'http://www.duden.de/suchen/dudenonline/'),
+                                     ('forvo', 'https://forvo.com/search/')]
     ResourceType = enum(audio=1, video=2, image=3)
+    signal_reply_fetched = QtCore.SIGNAL('DictionaryTab.reply_fetched')
     signal_resource_type_fetched = QtCore.SIGNAL('DictionaryTab.resource_type_fetched')
 
     #####################################################################
@@ -532,11 +613,11 @@ class DictionaryTab(Widget, OperationResult):
         self.name = address_pair[0]
         self.web_address = address_pair[1]
         self.word = None
-        self.browser = InlineBrowser(self)
-        self.browser.loadStarted.connect(lambda: self.update_status(InlineBrowser.SignalType.started))
-        self.browser.loadProgress.connect(lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
-        self.browser.loadFinished.connect(lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
-        self.browser.page().networkAccessManager().finished.connect(self.url_discovered)
+        self.browser = Browser(self)
+        self.browser.inline_browser.loadStarted.connect(lambda: self.update_status(InlineBrowser.SignalType.started))
+        self.browser.inline_browser.loadProgress.connect(lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
+        self.browser.inline_browser.loadFinished.connect(lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
+        self.browser.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -547,15 +628,31 @@ class DictionaryTab(Widget, OperationResult):
         word = '+'.join(word)
         url = self.web_address + word
         self.total_frames = 0
-        self.browser.load(QtCore.QUrl(url))
+        self.browser.inline_browser.load(QtCore.QUrl(url))
 
     #####################################################################
     def url_discovered(self, reply):
-        url = str(reply.url().toString())
-
+        # url = str(reply.url().toString())
+        if reply.url().toString().contains('mp3'):
+            print reply.url().toString()
         headers = reply.rawHeaderPairs()
-        if headers[0][0].contains('Content-Type'):
-            print headers[0][1]
+        for header in headers:
+            if header[0].contains('audio') or header [1].contains('audio'):
+                print header[0], header[1]
+                print reply.url().toString()
+
+    #####################################################################
+    def url_fetched(self, reply):
+        # url = str(reply.url().toString())
+        if reply.url().toString().contains('mp3'):
+            print reply.url().toString()
+        headers = reply.rawHeaderPairs()
+        for header in headers:
+            if header[0].contains('audio') or header [1].contains('audio'):
+                print header[0], header[1]
+                print reply.url().toString()
+        # if headers[0][0].contains('Content-Type'):
+        #     print headers[0][1]
         # thread = ThreadCheckResourceType(url)
         # self.connect(thread, DictionaryTab.signal_resource_type_fetched, self.print_resource_type)
         # thread.run()
