@@ -18,6 +18,7 @@ import Image
 import threading
 from PyQt4 import QtWebKit
 from PIL.ImageQt import ImageQt
+from PyQt4.phonon import Phonon
 import PIL
 
 
@@ -211,34 +212,6 @@ class ThreadFetchImageUrls(QtCore.QThread):
     # *************************
     def quit(self):
         self.quit_request = True
-
-
-#####################################################################
-class ThreadCheckResourceType(QtCore.QThread):
-    # *************************
-    def __init__(self, url):
-        super(ThreadCheckResourceType, self).__init__(None)
-        self.url = url
-
-    # *************************
-    def run(self):
-        try:
-            header = {
-                'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
-            }
-
-            response = urllib2.urlopen(urllib2.Request(self.url, headers=header))
-
-            maintype = response.headers['Content-Type'].split(';')[0].lower()
-
-            if 'audio' in maintype:
-                self.emit(DictionaryTab.signal_resource_type_fetched, DictionaryTab.ResourceType.audio)
-            if 'video' in maintype:
-                self.emit(DictionaryTab.signal_resource_type_fetched, DictionaryTab.ResourceType.video)
-            if 'image' in maintype:
-                self.emit(DictionaryTab.signal_resource_type_fetched, DictionaryTab.ResourceType.image)
-        except:
-            pass
 
 
 #####################################################################
@@ -456,6 +429,48 @@ class TabWidgetProgress(TabWidget, OperationResult):
 
 
 #####################################################################
+class ListWidget(QtGui.QListWidget):
+    #####################################################################
+    def __init__(self, parent=None):
+        super(ListWidget, self).__init__(parent)
+
+        # output = Phonon.AudioOutput(Phonon.MusicCategory)
+        # self.m_media = Phonon.MediaObject()
+        # Phonon.createPath(self.m_media, output)
+
+        self.itemClicked.connect(self.load_audio)
+
+    #####################################################################
+    def add(self, item):
+        for i in range(self.count()):
+            if self.item(i).text() == item:
+                return
+        self.addItem(item)
+
+    #####################################################################
+    def load_audio(self, item):
+        url = str(item.text())
+        header = {
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
+        }
+
+        response = urllib2.urlopen(urllib2.Request(url, headers=header))
+
+        f_name = '/home/mehdi/temp/test.mp3'
+        with open(f_name, 'wb') as f:
+            f.write(response.read())
+        output = Phonon.AudioOutput(Phonon.MusicCategory)
+        self.m_media = Phonon.MediaObject()
+        Phonon.createPath(self.m_media, output)
+        self.m_media.setCurrentSource(Phonon.MediaSource(f_name))
+        print 'playing ', url
+        self.m_media.play()
+        time.sleep(1)
+        # player = QtGui.QSound(f_name)
+        # QtGui.QSound.play(f_name)
+
+
+#####################################################################
 class InlineBrowser(QtWebKit.QWebView):
     InfoType = enum(dictionary=1, image=2, dictionary_image=3)
     SignalType = enum(started=1, progress=2, finished=3)
@@ -515,10 +530,20 @@ class InlineBrowser(QtWebKit.QWebView):
 
 #####################################################################
 class Browser(Widget):
+    signal_started = QtCore.SIGNAL("Browser.started")
+    signal_progress = QtCore.SIGNAL("Browser.progress")
+    signal_finished = QtCore.SIGNAL("Browser.finished")
     #####################################################################
     def __init__(self, mother):
         super(Browser, self).__init__(mother)
+        self.add_layout()
+        self.inline_browser.loadStarted.connect(self.started)
+        self.inline_browser.loadProgress.connect(self.progress)
+        self.inline_browser.loadFinished.connect(self.finished)
+        self.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
 
+    #####################################################################
+    def add_layout(self):
         header_layout = QtGui.QHBoxLayout()
 
         button = QtGui.QPushButton(u"◀")
@@ -558,10 +583,26 @@ class Browser(Widget):
         layout.addLayout(header_layout)
 
         self.inline_browser = InlineBrowser(self)
-        layout.addWidget(self.inline_browser)
         self.inline_browser.urlChanged.connect(self.update_address_line)
 
+        layout.addWidget(self.inline_browser)
+
+        self.audio_list = ListWidget()
+        layout.addWidget(self.audio_list)
+
         self.setLayout(layout)
+
+    #####################################################################
+    def started(self):
+        self.emit(Browser.signal_started)
+
+    #####################################################################
+    def progress(self, progress):
+        self.emit(Browser.signal_progress, progress)
+
+    #####################################################################
+    def finished(self, ok):
+        self.emit(Browser.signal_finished, ok)
 
     #####################################################################
     def stop(self):
@@ -584,9 +625,38 @@ class Browser(Widget):
         self.address_line.setText(url.toString())
 
     #####################################################################
-    def go(self):
+    def go(self, url = None):
+        if url:
+            self.address_line.setText(url)
         url = QtCore.QUrl(self.address_line.text())
         self.inline_browser.load(url)
+
+    #####################################################################
+    def url_discovered(self, reply):
+
+        url = reply.url()
+        if reply.url().toString().endsWith('mp3'):
+            self.audio_list.add(url.toString())
+        else:
+            headers = reply.rawHeaderPairs()
+            for header in headers:
+                if header[0].contains('audio') or header[1].contains('audio'):
+                    self.audio_list.add(url.toString())
+
+                # header = {
+        #     'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
+        # }
+        #
+        # response = urllib2.urlopen(urllib2.Request(url, headers=header))
+        #
+        # # maintype = response.headers['Content-Type'].split(';')[0].lower()
+        #
+        # print('reply url  :', reply.url().toString())
+        #
+        # # print('request url:', reply.request().url().toString())
+        #
+        # # page = StringIO(response.read())
+
 
 #####################################################################
 class DictionaryTab(Widget, OperationResult):
@@ -602,9 +672,6 @@ class DictionaryTab(Widget, OperationResult):
                                      ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
                                      ('duden', 'http://www.duden.de/suchen/dudenonline/'),
                                      ('forvo', 'https://forvo.com/search/')]
-    ResourceType = enum(audio=1, video=2, image=3)
-    signal_reply_fetched = QtCore.SIGNAL('DictionaryTab.reply_fetched')
-    signal_resource_type_fetched = QtCore.SIGNAL('DictionaryTab.resource_type_fetched')
 
     #####################################################################
     def __init__(self, address_pair, mother, parent=None):
@@ -614,10 +681,9 @@ class DictionaryTab(Widget, OperationResult):
         self.web_address = address_pair[1]
         self.word = None
         self.browser = Browser(self)
-        self.browser.inline_browser.loadStarted.connect(lambda: self.update_status(InlineBrowser.SignalType.started))
-        self.browser.inline_browser.loadProgress.connect(lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
-        self.browser.inline_browser.loadFinished.connect(lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
-        self.browser.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
+        self.connect(self.browser, Browser.signal_started, lambda: self.update_status(InlineBrowser.SignalType.started))
+        self.connect(self.browser, Browser.signal_progress, lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
+        self.connect(self.browser, Browser.signal_finished, lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
@@ -627,63 +693,7 @@ class DictionaryTab(Widget, OperationResult):
         word = word.split()
         word = '+'.join(word)
         url = self.web_address + word
-        self.total_frames = 0
-        self.browser.inline_browser.load(QtCore.QUrl(url))
-
-    #####################################################################
-    def url_discovered(self, reply):
-        # url = str(reply.url().toString())
-        if reply.url().toString().contains('mp3'):
-            print reply.url().toString()
-        headers = reply.rawHeaderPairs()
-        for header in headers:
-            if header[0].contains('audio') or header [1].contains('audio'):
-                print header[0], header[1]
-                print reply.url().toString()
-
-    #####################################################################
-    def url_fetched(self, reply):
-        # url = str(reply.url().toString())
-        if reply.url().toString().contains('mp3'):
-            print reply.url().toString()
-        headers = reply.rawHeaderPairs()
-        for header in headers:
-            if header[0].contains('audio') or header [1].contains('audio'):
-                print header[0], header[1]
-                print reply.url().toString()
-        # if headers[0][0].contains('Content-Type'):
-        #     print headers[0][1]
-        # thread = ThreadCheckResourceType(url)
-        # self.connect(thread, DictionaryTab.signal_resource_type_fetched, self.print_resource_type)
-        # thread.run()
-        #
-        # res = urllib.urlopen(url)
-        # http_message = res.info()
-        # full = http_message.type  # 'text/plain'
-        # main = http_message.maintype  # 'text'
-        #
-        # if full.startswith('audio'):
-        #     print full
-        #     print url
-        #
-        #     header = {
-        #         'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
-        #     }
-        #
-        #     response = urllib2.urlopen(urllib2.Request(url, headers=header))
-        #
-        #     # maintype = response.headers['Content-Type'].split(';')[0].lower()
-        #
-        #     print('reply url  :', reply.url().toString())
-        #
-        #     # print('request url:', reply.request().url().toString())
-        #
-        #     # page = StringIO(response.read())
-
-    #####################################################################
-    def print_resource_type(self, resource_type):
-        print(DictionaryTab.ResourceType.names[resource_type])
-
+        self.browser.go(url)
 
     #####################################################################
     def update_status(self, singal_type, param=None):
