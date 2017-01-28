@@ -215,6 +215,37 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
 
 #####################################################################
+class ThreadFetchAudio(QtCore.QThread):
+    # *************************
+    def __init__(self, url, f_name):
+        super(ThreadFetchAudio, self).__init__(None)
+        self.url = url
+        self.f_name = f_name
+        self.quit_request = False
+
+    # *************************
+    def run(self):
+        print 'fetching audio ...'
+
+        header = {
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
+        }
+
+        if not self.quit_request:
+            opened_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
+
+            with open(self.f_name, 'wb') as f:
+                f.write(opened_url.read())
+
+            if not self.quit_request:
+                self.emit(AudioListWidget.signal_audio_fetched, self.url)
+
+    # *************************
+    def quit(self):
+        self.quit_request = True
+
+
+#####################################################################
 class Widget(QtGui.QWidget):
     #####################################################################
     def __init__(self, mother, parent=None):
@@ -429,10 +460,11 @@ class TabWidgetProgress(TabWidget, OperationResult):
 
 
 #####################################################################
-class ListWidget(QtGui.QListWidget):
+class AudioListWidget(QtGui.QListWidget):
+    signal_audio_fetched = QtCore.SIGNAL("Browser.audio_fetched")
     #####################################################################
     def __init__(self, parent=None):
-        super(ListWidget, self).__init__(parent)
+        super(AudioListWidget, self).__init__(parent)
 
         # output = Phonon.AudioOutput(Phonon.MusicCategory)
         # self.m_media = Phonon.MediaObject()
@@ -587,7 +619,7 @@ class Browser(Widget):
 
         layout.addWidget(self.inline_browser)
 
-        self.audio_list = ListWidget()
+        self.audio_list = AudioListWidget()
         layout.addWidget(self.audio_list)
 
         self.setLayout(layout)
