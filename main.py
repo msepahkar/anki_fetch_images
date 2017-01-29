@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import time
+import tempfile
+import pygame
 import math
 from bs4 import BeautifulSoup
 import requests
@@ -18,7 +20,6 @@ import Image
 import threading
 from PyQt4 import QtWebKit
 from PIL.ImageQt import ImageQt
-from PyQt4.phonon import Phonon
 import PIL
 
 
@@ -225,7 +226,7 @@ class ThreadFetchAudio(QtCore.QThread):
 
     # *************************
     def run(self):
-        print 'fetching audio ...'
+        print 'fetching', self.url, '...'
 
         header = {
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
@@ -238,7 +239,7 @@ class ThreadFetchAudio(QtCore.QThread):
                 f.write(opened_url.read())
 
             if not self.quit_request:
-                self.emit(AudioListWidget.signal_audio_fetched, self.url)
+                self.emit(AudioListWidget.signal_audio_fetched, True)
 
     # *************************
     def quit(self):
@@ -461,7 +462,8 @@ class TabWidgetProgress(TabWidget, OperationResult):
 
 #####################################################################
 class AudioListWidget(QtGui.QListWidget):
-    signal_audio_fetched = QtCore.SIGNAL("Browser.audio_fetched")
+    signal_audio_fetched = QtCore.SIGNAL("AudioListWidget.audio_fetched")
+
     #####################################################################
     def __init__(self, parent=None):
         super(AudioListWidget, self).__init__(parent)
@@ -469,37 +471,45 @@ class AudioListWidget(QtGui.QListWidget):
         # output = Phonon.AudioOutput(Phonon.MusicCategory)
         # self.m_media = Phonon.MediaObject()
         # Phonon.createPath(self.m_media, output)
-
+        self.audio_files = dict()
+        self.fetching_threads = dict()
         self.itemClicked.connect(self.load_audio)
 
     #####################################################################
-    def add(self, item):
+    def add(self, url):
         for i in range(self.count()):
-            if self.item(i).text() == item:
+            if self.item(i).text() == url:
                 return
-        self.addItem(item)
+        self.addItem(url)
 
     #####################################################################
     def load_audio(self, item):
         url = str(item.text())
-        header = {
-            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
-        }
+        if url in self.audio_files:
+            self.play_audio(url)
+        elif url not in self.fetching_threads:
+            f = tempfile.NamedTemporaryFile(delete=False)
+            f.close()
+            f_name = f.name
+            self.fetching_threads[url] = ThreadFetchAudio(url, f_name)
+            self.connect(self.fetching_threads[url], AudioListWidget.signal_audio_fetched, lambda ok: self.audio_fetched(url, f_name, ok))
+            self.fetching_threads[url].start()
 
-        response = urllib2.urlopen(urllib2.Request(url, headers=header))
+    #####################################################################
+    def audio_fetched(self, url, f_name, ok):
+        del self.fetching_threads[url]
+        if ok:
+            self.audio_files[url] = f_name
+            self.play_audio(url)
 
-        f_name = '/home/mehdi/temp/test.mp3'
-        with open(f_name, 'wb') as f:
-            f.write(response.read())
-        output = Phonon.AudioOutput(Phonon.MusicCategory)
-        self.m_media = Phonon.MediaObject()
-        Phonon.createPath(self.m_media, output)
-        self.m_media.setCurrentSource(Phonon.MediaSource(f_name))
+    #####################################################################
+    def play_audio(self, url):
+        if url not in self.audio_files:
+            print 'audio file does not exist'
+            return
         print 'playing ', url
-        self.m_media.play()
-        time.sleep(1)
-        # player = QtGui.QSound(f_name)
-        # QtGui.QSound.play(f_name)
+        pygame.mixer.music.load(self.audio_files[url])
+        pygame.mixer.music.play()
 
 
 #####################################################################
@@ -666,28 +676,23 @@ class Browser(Widget):
     #####################################################################
     def url_discovered(self, reply):
 
-        url = reply.url()
-        if reply.url().toString().endsWith('mp3'):
-            self.audio_list.add(url.toString())
+        url = reply.url().toString()
+        if url.endsWith('mp3'):
+            self.audio_list.add(url)
         else:
             headers = reply.rawHeaderPairs()
             for header in headers:
-                if header[0].contains('audio') or header[1].contains('audio'):
-                    self.audio_list.add(url.toString())
+                if header[1].contains('audio'):
+                    self.audio_list.add(url)
 
-                # header = {
-        #     'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
-        # }
-        #
-        # response = urllib2.urlopen(urllib2.Request(url, headers=header))
-        #
-        # # maintype = response.headers['Content-Type'].split(';')[0].lower()
-        #
-        # print('reply url  :', reply.url().toString())
-        #
-        # # print('request url:', reply.request().url().toString())
-        #
-        # # page = StringIO(response.read())
+    #####################################################################
+    def quit(self):
+        self.inline_browser.stop()
+        print 'removing temp files ...'
+        for audio_file in self.audio_list.audio_files:
+            if os.path.exists(audio_file):
+                os.remove(audio_file)
+                print audio_file, 'removed.'
 
 
 #####################################################################
@@ -757,9 +762,9 @@ class DictionaryTab(Widget, OperationResult):
             tab_dictionaries.update_progress()
 
     #####################################################################
-    def stop(self):
-        self.browser.stop()
-        print('dictionary {} stopped.'.format(self.name))
+    def quit(self):
+        self.browser.quit()
+        print('dictionary {} quited.'.format(self.name))
 
 
 #####################################################################
@@ -929,6 +934,8 @@ class MainDialog(Dialog):
     def __init__(self, word, language, media_dir, parent=None):
         super(MainDialog, self).__init__(parent)
 
+        pygame.init()
+
         self.word = word
         self.media_dir = media_dir
         self.full_image_file_name = None
@@ -1000,7 +1007,7 @@ class MainDialog(Dialog):
         for tab_image in self.findChildren(ImageTab):
             tab_image.quit()
         for tab_dictionary in self.findChildren(DictionaryTab):
-            tab_dictionary.stop()
+            tab_dictionary.quit()
         for tab_image in self.findChildren(ImageTab):
             tab_image.terminate()
 

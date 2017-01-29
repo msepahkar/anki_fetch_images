@@ -1,21 +1,50 @@
-from PyQt4 import QtCore, QtGui
+from PyQt4.QtGui import *
+from PyQt4.QtCore import *
+from PyQt4.QtNetwork import *
 import sys
-from PyQt4.phonon import Phonon
-import time
 
-app = QtGui.QApplication(sys.argv)
-output = Phonon.AudioOutput(Phonon.MusicCategory)
-m_media = Phonon.MediaObject()
-Phonon.createPath(m_media, output)
-f_name = '/home/mehdi/temp/test.mp3'
-m_media.setCurrentSource(Phonon.MediaSource(f_name))
-m_media.play()
-print 'played'
 
-# from PyQt4 import QtGui
-#
-# print QtGui.QSound.isAvailable()
-# f_name = '/home/mehdi/temp/test.mp3'
-time.sleep(1)
-# player = QtGui.QSound(f_name)
-# QtGui.QSound.play(f_name)
+# Subclass QNetworkAccessManager Here
+class NetworkAccessManager(QNetworkAccessManager):
+    # Save image data in QByteArray buffer to the disk (google_image_logo.png
+    # in the same directory)
+    @pyqtSlot()
+    def slotFinished(self):
+        print 'finished'
+        self.messageBuffer += self.reply.readAll()
+        imageFile = QFile("/home/mehdi/google_image_logo.png")
+        if (imageFile.open(QIODevice.WriteOnly)):
+            imageFile.write(self.messageBuffer)
+            imageFile.close()
+            QMessageBox.information(None, "Hello!", "File has been saved!")
+        else:
+            QMessageBox.critical(None, "Hello!", "Error saving file!")
+
+    # Append current data to the buffer every time readyRead() signal is emitted
+    @pyqtSlot()
+    def slotReadData(self):
+        print 'new data'
+        self.messageBuffer += self.reply.readAll()
+
+    def __init__(self):
+        QNetworkAccessManager.__init__(self)
+        self.messageBuffer = QByteArray()
+        url = QUrl("http://upload.wikimedia.org/wikipedia/commons/f/fe/Google_Images_Logo.png")
+        req = QNetworkRequest(url)
+        self.reply = self.get(req)
+
+        QObject.connect(self.reply, SIGNAL("readyRead()"), self, SLOT("slotReadData()"))
+        QObject.connect(self.reply, SIGNAL("finished()"), self, SLOT("slotFinished()"))
+        # End of NetworkAccessManager Class
+
+
+###################################
+
+def main():
+    app = QApplication(sys.argv)
+    networkAccessManager = NetworkAccessManager()
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()
