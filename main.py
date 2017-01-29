@@ -463,6 +463,51 @@ class TabWidgetProgress(TabWidget, OperationResult):
 #####################################################################
 class AudioListWidget(QtGui.QListWidget):
     signal_audio_fetched = QtCore.SIGNAL("AudioListWidget.audio_fetched")
+    Status = enum(empty=1, discovered=2, fetching=3, fetched=4, failed=5)
+
+    #####################################################################
+    class AudioListWidgetItem(QtGui.QListWidgetItem):
+
+        #####################################################################
+        def __init__(self, url):
+            super(AudioListWidget.AudioListWidgetItem, self).__init__()
+            self.url = url
+            f = tempfile.NamedTemporaryFile(delete=False)
+            f.close()
+            self.audio_file = f.name
+            self.status = AudioListWidget.Status.discovered
+            self.update_status(self.status)
+            self.fetching_thread = ThreadFetchAudio(url, f.name)
+            self.connect(self.fetching_thread, AudioListWidget.signal_audio_fetched, self.audio_fetched)
+
+        #####################################################################
+        def audio_fetched(self, ok):
+            if ok:
+                self.update_status(AudioListWidget.Status.fetched)
+            else:
+                self.update_status(AudioListWidget.Status.failed)
+
+        #####################################################################
+        def update_status(self, status):
+            self.status = status
+            self.setText(AudioListWidget.Status.names[self.status] + ':' + self.url)
+
+        #####################################################################
+        def load_audio(self):
+            if self.status == AudioListWidget.Status.fetching:
+                return
+            if self.status == AudioListWidget.Status.fetched:
+                self.play_audio()
+                return
+            self.set_status(AudioListWidget.Status.fetching)
+            self.fetching_thread.start()
+
+
+        #####################################################################
+        def play_audio(self):
+            pygame.mixer.music.load(self.audio_file)
+            pygame.mixer.music.play()
+
 
     #####################################################################
     def __init__(self, parent=None):
@@ -471,46 +516,15 @@ class AudioListWidget(QtGui.QListWidget):
         # output = Phonon.AudioOutput(Phonon.MusicCategory)
         # self.m_media = Phonon.MediaObject()
         # Phonon.createPath(self.m_media, output)
-        self.audio_files = dict()
-        self.fetching_threads = dict()
-        self.itemClicked.connect(self.load_audio)
+        self.itemClicked.connect(lambda item: item.load_audio)
 
     #####################################################################
     def add(self, url):
         for i in range(self.count()):
-            if self.item(i).text() == url:
+            if self.items(i).url == url:
                 return
-        self.addItem(url)
-
-    #####################################################################
-    def load_audio(self, item):
-        url = str(item.text())
-        if url in self.audio_files:
-            self.play_audio(url)
-        elif url not in self.fetching_threads:
-            f = tempfile.NamedTemporaryFile(delete=False)
-            f.close()
-            f_name = f.name
-            self.fetching_threads[url] = ThreadFetchAudio(url, f_name)
-            self.connect(self.fetching_threads[url], AudioListWidget.signal_audio_fetched, lambda ok: self.audio_fetched(url, f_name, ok))
-            self.fetching_threads[url].start()
-
-    #####################################################################
-    def audio_fetched(self, url, f_name, ok):
-        del self.fetching_threads[url]
-        if ok:
-            self.audio_files[url] = f_name
-            self.play_audio(url)
-
-    #####################################################################
-    def play_audio(self, url):
-        if url not in self.audio_files:
-            print 'audio file does not exist'
-            return
-        print 'playing ', url
-        pygame.mixer.music.load(self.audio_files[url])
-        pygame.mixer.music.play()
-
+        item = QtGui.QListWidgetItem(url)
+        self.addItem(item)
 
 #####################################################################
 class InlineBrowser(QtWebKit.QWebView):
