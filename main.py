@@ -512,14 +512,38 @@ class AudioListWidget(QtGui.QListWidget):
             pygame.mixer.music.play()
 
 
+    ####################################################################
+    class MyDelegate(QtGui.QItemDelegate):
+        def __init__(self, parent=None, *args):
+            QtGui.QItemDelegate.__init__(self, parent, *args)
+
+        def paint(self, painter, option, index):
+            painter.save()
+
+            # set background color
+            painter.setPen(QtGui.QPen(QtCore.Qt.NoPen))
+            if option.state & QtGui.QStyle.State_Selected:
+                painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
+            else:
+                painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
+            painter.drawRect(option.rect)
+
+            # set text color
+            painter.setPen(QtGui.QPen(QtCore.Qt.black))
+            value = index.data(QtCore.Qt.DisplayRole)
+            if value.isValid():
+                text = value.toString()
+                painter.drawText(option.rect, QtCore.Qt.AlignLeft, text)
+
+            painter.restore()
+
     #####################################################################
     def __init__(self, parent=None):
         super(AudioListWidget, self).__init__(parent)
 
-        # output = Phonon.AudioOutput(Phonon.MusicCategory)
-        # self.m_media = Phonon.MediaObject()
-        # Phonon.createPath(self.m_media, output)
         self.itemClicked.connect(self.load_audio)
+        de = AudioListWidget.MyDelegate(self)
+        self.setItemDelegate(de)
 
     #####################################################################
     def add(self, url):
