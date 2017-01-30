@@ -233,7 +233,7 @@ class ThreadFetchAudio(QtCore.QThread):
         }
 
         if not self.quit_request:
-            opened_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
+            opened_url = urllib2.urlopen(urllib2.Request(str(self.url), headers=header))
 
             with open(self.f_name, 'wb') as f:
                 f.write(opened_url.read())
@@ -476,21 +476,22 @@ class AudioListWidget(QtGui.QListWidget):
             f.close()
             self.audio_file = f.name
             self.status = AudioListWidget.Status.discovered
-            self.update_status(self.status)
+            self.set_status(self.status)
             self.fetching_thread = ThreadFetchAudio(url, f.name)
-            self.connect(self.fetching_thread, AudioListWidget.signal_audio_fetched, self.audio_fetched)
+            QtCore.QObject.connect(self.fetching_thread, AudioListWidget.signal_audio_fetched, self.audio_fetched)
 
         #####################################################################
         def audio_fetched(self, ok):
             if ok:
-                self.update_status(AudioListWidget.Status.fetched)
+                self.set_status(AudioListWidget.Status.fetched)
+                self.play_audio()
             else:
-                self.update_status(AudioListWidget.Status.failed)
+                self.set_status(AudioListWidget.Status.failed)
 
         #####################################################################
-        def update_status(self, status):
+        def set_status(self, status):
             self.status = status
-            self.setText(AudioListWidget.Status.names[self.status] + ':' + self.url)
+            self.setText(AudioListWidget.Status.names[self.status] + ':  ' + self.url)
 
         #####################################################################
         def load_audio(self):
@@ -499,12 +500,14 @@ class AudioListWidget(QtGui.QListWidget):
             if self.status == AudioListWidget.Status.fetched:
                 self.play_audio()
                 return
+            print 'loading audio for:', self.url
             self.set_status(AudioListWidget.Status.fetching)
             self.fetching_thread.start()
 
 
         #####################################################################
         def play_audio(self):
+            print 'playing audio for: ', self.url
             pygame.mixer.music.load(self.audio_file)
             pygame.mixer.music.play()
 
@@ -516,15 +519,21 @@ class AudioListWidget(QtGui.QListWidget):
         # output = Phonon.AudioOutput(Phonon.MusicCategory)
         # self.m_media = Phonon.MediaObject()
         # Phonon.createPath(self.m_media, output)
-        self.itemClicked.connect(lambda item: item.load_audio)
+        self.itemClicked.connect(self.load_audio)
 
     #####################################################################
     def add(self, url):
         for i in range(self.count()):
-            if self.items(i).url == url:
+            if self.item(i).url == url:
                 return
-        item = QtGui.QListWidgetItem(url)
+        item = AudioListWidget.AudioListWidgetItem(url)
         self.addItem(item)
+
+
+    #####################################################################
+    def load_audio(self, item):
+        item.load_audio()
+
 
 #####################################################################
 class InlineBrowser(QtWebKit.QWebView):
