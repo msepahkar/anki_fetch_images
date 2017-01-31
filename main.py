@@ -239,7 +239,7 @@ class ThreadFetchAudio(QtCore.QThread):
                 f.write(opened_url.read())
 
             if not self.quit_request:
-                self.emit(AudioListWidget.signal_audio_fetched, True)
+                self.emit(AudioListView.signal_audio_fetched, True)
 
     # *************************
     def quit(self):
@@ -461,47 +461,47 @@ class TabWidgetProgress(TabWidget, OperationResult):
 
 
 #####################################################################
-class AudioListWidget(QtGui.QListWidget):
+class AudioListView(QtGui.QListView):
     signal_audio_fetched = QtCore.SIGNAL("AudioListWidget.audio_fetched")
     Status = enum(empty=1, discovered=2, fetching=3, fetched=4, failed=5)
 
     #####################################################################
-    class AudioListWidgetItem(QtGui.QListWidgetItem):
+    class AudioListWidgetItem(QtGui.QStandardItem):
 
         #####################################################################
         def __init__(self, url):
-            super(AudioListWidget.AudioListWidgetItem, self).__init__()
+            super(AudioListView.AudioListWidgetItem, self).__init__()
             self.url = url
             f = tempfile.NamedTemporaryFile(delete=False)
             f.close()
             self.audio_file = f.name
-            self.status = AudioListWidget.Status.discovered
+            self.status = AudioListView.Status.discovered
             self.set_status(self.status)
             self.fetching_thread = ThreadFetchAudio(url, f.name)
-            QtCore.QObject.connect(self.fetching_thread, AudioListWidget.signal_audio_fetched, self.audio_fetched)
+            QtCore.QObject.connect(self.fetching_thread, AudioListView.signal_audio_fetched, self.audio_fetched)
 
         #####################################################################
         def audio_fetched(self, ok):
             if ok:
-                self.set_status(AudioListWidget.Status.fetched)
+                self.set_status(AudioListView.Status.fetched)
                 self.play_audio()
             else:
-                self.set_status(AudioListWidget.Status.failed)
+                self.set_status(AudioListView.Status.failed)
 
         #####################################################################
         def set_status(self, status):
             self.status = status
-            self.setText(AudioListWidget.Status.names[self.status] + ':  ' + self.url)
+            self.setText(AudioListView.Status.names[self.status] + ':  ' + self.url)
 
         #####################################################################
         def load_audio(self):
-            if self.status == AudioListWidget.Status.fetching:
+            if self.status == AudioListView.Status.fetching:
                 return
-            if self.status == AudioListWidget.Status.fetched:
+            if self.status == AudioListView.Status.fetched:
                 self.play_audio()
                 return
             print 'loading audio for:', self.url
-            self.set_status(AudioListWidget.Status.fetching)
+            self.set_status(AudioListView.Status.fetching)
             self.fetching_thread.start()
 
 
@@ -528,43 +528,49 @@ class AudioListWidget(QtGui.QListWidget):
                 painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
             painter.drawRect(option.rect)
 
-            value = index.data(QtCore.Qt.DisplayRole)
-            if value.isValid():
-                text = value.toString()
-                first_word = text.split(" ")[0]
-                the_rest = text.mid(len(first_word))
-                # set text color
-                painter.setPen(QtGui.QPen(QtCore.Qt.yellow))
-                painter.drawText(option.rect, QtCore.Qt.AlignRight, first_word)
+            item = index.data(QtCore.Qt.UserRole)
+            if item.isValid():
+                item = item.toPyObject()
                 # set text color
                 painter.setPen(QtGui.QPen(QtCore.Qt.black))
-                painter.drawText(option.rect, QtCore.Qt.AlignLeft, the_rest)
+                painter.drawText(option.rect, QtCore.Qt.AlignLeft, item.url)
+
+                text = AudioListView.Status.names[item.status]
+                # set text color
+                painter.setPen(QtGui.QPen(QtCore.Qt.green))
+                painter.drawText(option.rect, QtCore.Qt.AlignRight, text)
 
             painter.restore()
 
     #####################################################################
     def __init__(self, parent=None):
-        super(AudioListWidget, self).__init__(parent)
+        super(AudioListView, self).__init__(parent)
 
-        self.itemClicked.connect(self.load_audio)
-        de = AudioListWidget.MyDelegate(self)
+        self.clicked.connect(self.load_audio)
+        de = AudioListView.MyDelegate(self)
 
-        model = QtGui.QStandardItemModel()  # declare model
-        self.setModel(model)  # assign model to table view
+        self.model = QtGui.QStandardItemModel()  # declare model
+        self.setModel(self.model)  # assign model to table view
 
         self.setItemDelegate(de)
 
     #####################################################################
     def add(self, url):
-        for i in range(self.count()):
-            if self.item(i).url == url:
+        model = self.model
+        for index in range(model.rowCount()):
+            item = model.item(index)
+            if item.url == url:
                 return
-        item = AudioListWidget.AudioListWidgetItem(url)
-        self.addItem(item)
+        item = AudioListView.AudioListWidgetItem(url)
+        self.model.appendRow(item)
 
+        item.setData(url, QtCore.Qt.DisplayRole)
+        item.setData(item, QtCore.Qt.UserRole)
+        item.setData(item.status, QtCore.Qt.UserRole + 1)
 
     #####################################################################
-    def load_audio(self, item):
+    def load_audio(self, index):
+        item = index.data(QtCore.Qt.UserRole).toPyObject()
         item.load_audio()
 
 
@@ -685,7 +691,7 @@ class Browser(Widget):
 
         layout.addWidget(self.inline_browser)
 
-        self.audio_list = AudioListWidget()
+        self.audio_list = AudioListView()
         layout.addWidget(self.audio_list)
 
         self.setLayout(layout)
