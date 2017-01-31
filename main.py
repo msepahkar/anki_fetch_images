@@ -513,7 +513,7 @@ class AudioListWidget(QtGui.QListWidget):
 
 
     ####################################################################
-    class MyDelegate(QtGui.QItemDelegate):
+    class MyDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
         def __init__(self, parent=None, *args):
             QtGui.QItemDelegate.__init__(self, parent, *args)
 
@@ -528,12 +528,17 @@ class AudioListWidget(QtGui.QListWidget):
                 painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
             painter.drawRect(option.rect)
 
-            # set text color
-            painter.setPen(QtGui.QPen(QtCore.Qt.black))
             value = index.data(QtCore.Qt.DisplayRole)
             if value.isValid():
                 text = value.toString()
-                painter.drawText(option.rect, QtCore.Qt.AlignLeft, text)
+                first_word = text.split(" ")[0]
+                the_rest = text.mid(len(first_word))
+                # set text color
+                painter.setPen(QtGui.QPen(QtCore.Qt.yellow))
+                painter.drawText(option.rect, QtCore.Qt.AlignRight, first_word)
+                # set text color
+                painter.setPen(QtGui.QPen(QtCore.Qt.black))
+                painter.drawText(option.rect, QtCore.Qt.AlignLeft, the_rest)
 
             painter.restore()
 
@@ -543,6 +548,10 @@ class AudioListWidget(QtGui.QListWidget):
 
         self.itemClicked.connect(self.load_audio)
         de = AudioListWidget.MyDelegate(self)
+
+        model = QtGui.QStandardItemModel()  # declare model
+        self.setModel(model)  # assign model to table view
+
         self.setItemDelegate(de)
 
     #####################################################################
