@@ -559,6 +559,21 @@ class AudioListWidget(QtGui.QListWidget):
         item = AudioListWidget.AudioListWidgetItem(url)
         self.addItem(item)
 
+        # Create widget
+        widget = QtGui.QWidget()
+        widgetText = QtGui.QLabel("I love PyQt!")
+        widgetButton = QtGui.QPushButton("Push Me")
+        widgetLayout = QtGui.QHBoxLayout()
+        widgetLayout.addWidget(widgetText)
+        widgetLayout.addWidget(widgetButton)
+        widgetLayout.addStretch()
+
+        widgetLayout.setSizeConstraint(QtGui.QLayout.SetFixedSize)
+        widget.setLayout(widgetLayout)
+        item.setSizeHint(widget.sizeHint())
+
+        # Add widget to QListWidget funList
+        self.setItemWidget(item, widget)
 
     #####################################################################
     def load_audio(self, item):
