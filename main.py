@@ -537,6 +537,13 @@ class AudioListWidget(QtGui.QListWidget):
             painter.setPen(QtGui.QPen(QtCore.Qt.green))
             painter.drawText(option.rect, QtCore.Qt.AlignRight, AudioListWidget.Status.names[item.status])
 
+            opt = QtGui.QStyleOptionProgressBar()
+            opt.rect = option.rect
+            opt.minimum = 0
+            opt.maximum = 100
+            opt.progress = 60
+            app.style().drawControl(QtGui.QStyle.CE_ProgressBar, opt, painter)
+
             painter.restore()
 
     #####################################################################
