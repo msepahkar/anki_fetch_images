@@ -514,8 +514,9 @@ class AudioListWidget(QtGui.QListWidget):
 
     ####################################################################
     class MyDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
-        def __init__(self, parent=None, *args):
-            QtGui.QItemDelegate.__init__(self, parent, *args)
+        def __init__(self, list_widget, parent=None):
+            QtGui.QItemDelegate.__init__(self, parent)
+            self.list_widget = list_widget
 
         def paint(self, painter, option, index):
             painter.save()
@@ -528,17 +529,13 @@ class AudioListWidget(QtGui.QListWidget):
                 painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
             painter.drawRect(option.rect)
 
-            value = index.data(QtCore.Qt.DisplayRole)
-            if value.isValid():
-                text = value.toString()
-                first_word = text.split(" ")[0]
-                the_rest = text.mid(len(first_word))
-                # set text color
-                painter.setPen(QtGui.QPen(QtCore.Qt.yellow))
-                painter.drawText(option.rect, QtCore.Qt.AlignRight, first_word)
-                # set text color
-                painter.setPen(QtGui.QPen(QtCore.Qt.black))
-                painter.drawText(option.rect, QtCore.Qt.AlignLeft, the_rest)
+            item = self.list_widget.item(index.row())
+            # set text color
+            painter.setPen(QtGui.QPen(QtCore.Qt.black))
+            painter.drawText(option.rect, QtCore.Qt.AlignLeft, item.url)
+            # set text color
+            painter.setPen(QtGui.QPen(QtCore.Qt.green))
+            painter.drawText(option.rect, QtCore.Qt.AlignRight, AudioListWidget.Status.names[item.status])
 
             painter.restore()
 
@@ -549,8 +546,8 @@ class AudioListWidget(QtGui.QListWidget):
         self.itemClicked.connect(self.load_audio)
         de = AudioListWidget.MyDelegate(self)
 
-        model = QtGui.QStandardItemModel()  # declare model
-        self.setModel(model)  # assign model to table view
+        # model = QtGui.QStandardItemModel()  # declare model
+        # self.setModel(model)  # assign model to table view
 
         self.setItemDelegate(de)
 
