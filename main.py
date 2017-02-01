@@ -460,98 +460,126 @@ class TabWidgetProgress(TabWidget, OperationResult):
         mother.update_progress()
 
 
+####################################################################
+class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
+    def __init__(self, list_widget, parent=None):
+        QtGui.QItemDelegate.__init__(self, parent)
+        self.list_widget = list_widget
+
+    def paint(self, painter, option, index):
+        painter.save()
+
+        # set background color
+        painter.setPen(QtGui.QPen(QtCore.Qt.NoPen))
+        if option.state & QtGui.QStyle.State_Selected:
+            painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
+        else:
+            painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
+        painter.drawRect(option.rect)
+
+        # opt = QtGui.QStyleOptionProgressBar()
+        # opt.rect = option.rect
+        # opt.minimum = 0
+        # opt.maximum = 100
+        # opt.progress = 60
+        # self.list_widget.style().drawControl(QtGui.QStyle.CE_ProgressBar, opt, painter)
+
+        item = self.list_widget.item(index.row())
+        # set text color
+        painter.setPen(QtGui.QPen(QtCore.Qt.black))
+        painter.drawText(option.rect, QtCore.Qt.AlignLeft, item.url)
+        # set text color
+        painter.setPen(QtGui.QPen(QtCore.Qt.green))
+        painter.drawText(option.rect, QtCore.Qt.AlignRight, AudioListWidget.Status.names[item.status])
+
+        item.widget_button.resize(option.rect.width(), option.rect.height())
+        item.progress_bar.resize(option.rect.width(), option.rect.height())
+
+        painter.restore()
+
+
+#####################################################################
+class AudioListWidgetItem(QtGui.QListWidgetItem):
+    #####################################################################
+    def __init__(self, url):
+        super(AudioListWidgetItem, self).__init__()
+        self.url = url
+        f = tempfile.NamedTemporaryFile(delete=False)
+        f.close()
+        self.audio_file = f.name
+        self.status = AudioListWidget.Status.discovered
+        self.set_status(self.status)
+        self.fetching_thread = ThreadFetchAudio(url, f.name)
+        QtCore.QObject.connect(self.fetching_thread, AudioListWidget.signal_audio_fetched, self.audio_fetched)
+
+    #####################################################################
+    def add_button(self):
+        # Create widget
+        self.widget = QtGui.QWidget()
+        self.widget_button = QtGui.QPushButton("Push Me")
+        self.widget_button.clicked.connect(self.set_progress_bar_value)
+        self.progress_bar = QtGui.QProgressBar()
+        self.progress_bar.setRange(0,100)
+        self.progress_bar.setValue(1)
+        widget_layout = QtGui.QHBoxLayout()
+        widget_layout.addWidget(self.widget_button)
+        widget_layout.addWidget(self.progress_bar)
+        widget_layout.addStretch()
+
+        widget_layout.setSizeConstraint(QtGui.QLayout.SetFixedSize)
+        self.widget.setLayout(widget_layout)
+        # self.widget.setMaximumHeight(self.sizeHint().height())
+        # self.setSizeHint(widget.sizeHint())
+
+        # Add widget to QListWidget funList
+        self.listWidget().setItemWidget(self, self.widget)
+
+    #####################################################################
+    def set_progress_bar_value(self):
+        self.progress_bar.setValue(self.progress_bar.value() + 2)
+
+    #####################################################################
+    def audio_fetched(self, ok):
+        if ok:
+            self.set_status(AudioListWidget.Status.fetched)
+            self.play_audio()
+        else:
+            self.set_status(AudioListWidget.Status.failed)
+
+    #####################################################################
+    def set_status(self, status):
+        self.status = status
+        self.setText(AudioListWidget.Status.names[self.status] + ':  ' + self.url)
+
+    #####################################################################
+    def load_audio(self):
+        if self.status == AudioListWidget.Status.fetching:
+            return
+        if self.status == AudioListWidget.Status.fetched:
+            self.play_audio()
+            return
+        print 'loading audio for:', self.url
+        self.set_status(AudioListWidget.Status.fetching)
+        self.fetching_thread.start()
+
+    #####################################################################
+    def play_audio(self):
+        print 'playing audio for: ', self.url
+        pygame.mixer.music.load(self.audio_file)
+        pygame.mixer.music.play()
+
+
 #####################################################################
 class AudioListWidget(QtGui.QListWidget):
     signal_audio_fetched = QtCore.SIGNAL("AudioListWidget.audio_fetched")
     Status = enum(empty=1, discovered=2, fetching=3, fetched=4, failed=5)
 
     #####################################################################
-    class AudioListWidgetItem(QtGui.QListWidgetItem):
-
-        #####################################################################
-        def __init__(self, url):
-            super(AudioListWidget.AudioListWidgetItem, self).__init__()
-            self.url = url
-            f = tempfile.NamedTemporaryFile(delete=False)
-            f.close()
-            self.audio_file = f.name
-            self.status = AudioListWidget.Status.discovered
-            self.set_status(self.status)
-            self.fetching_thread = ThreadFetchAudio(url, f.name)
-            QtCore.QObject.connect(self.fetching_thread, AudioListWidget.signal_audio_fetched, self.audio_fetched)
-
-        #####################################################################
-        def audio_fetched(self, ok):
-            if ok:
-                self.set_status(AudioListWidget.Status.fetched)
-                self.play_audio()
-            else:
-                self.set_status(AudioListWidget.Status.failed)
-
-        #####################################################################
-        def set_status(self, status):
-            self.status = status
-            self.setText(AudioListWidget.Status.names[self.status] + ':  ' + self.url)
-
-        #####################################################################
-        def load_audio(self):
-            if self.status == AudioListWidget.Status.fetching:
-                return
-            if self.status == AudioListWidget.Status.fetched:
-                self.play_audio()
-                return
-            print 'loading audio for:', self.url
-            self.set_status(AudioListWidget.Status.fetching)
-            self.fetching_thread.start()
-
-
-        #####################################################################
-        def play_audio(self):
-            print 'playing audio for: ', self.url
-            pygame.mixer.music.load(self.audio_file)
-            pygame.mixer.music.play()
-
-
-    ####################################################################
-    class MyDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
-        def __init__(self, list_widget, parent=None):
-            QtGui.QItemDelegate.__init__(self, parent)
-            self.list_widget = list_widget
-
-        def paint(self, painter, option, index):
-            painter.save()
-
-            # set background color
-            painter.setPen(QtGui.QPen(QtCore.Qt.NoPen))
-            if option.state & QtGui.QStyle.State_Selected:
-                painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
-            else:
-                painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
-            painter.drawRect(option.rect)
-
-            item = self.list_widget.item(index.row())
-            # set text color
-            painter.setPen(QtGui.QPen(QtCore.Qt.black))
-            painter.drawText(option.rect, QtCore.Qt.AlignLeft, item.url)
-            # set text color
-            painter.setPen(QtGui.QPen(QtCore.Qt.green))
-            painter.drawText(option.rect, QtCore.Qt.AlignRight, AudioListWidget.Status.names[item.status])
-
-            opt = QtGui.QStyleOptionProgressBar()
-            opt.rect = option.rect
-            opt.minimum = 0
-            opt.maximum = 100
-            opt.progress = 60
-            app.style().drawControl(QtGui.QStyle.CE_ProgressBar, opt, painter)
-
-            painter.restore()
-
-    #####################################################################
     def __init__(self, parent=None):
         super(AudioListWidget, self).__init__(parent)
 
         self.itemClicked.connect(self.load_audio)
-        de = AudioListWidget.MyDelegate(self)
+        de = AudioListWidgetItemDelegate(self)
 
         # model = QtGui.QStandardItemModel()  # declare model
         # self.setModel(model)  # assign model to table view
@@ -563,24 +591,10 @@ class AudioListWidget(QtGui.QListWidget):
         for i in range(self.count()):
             if self.item(i).url == url:
                 return
-        item = AudioListWidget.AudioListWidgetItem(url)
+        item = AudioListWidgetItem(url)
         self.addItem(item)
+        item.add_button()
 
-        # Create widget
-        widget = QtGui.QWidget()
-        widgetText = QtGui.QLabel("I love PyQt!")
-        widgetButton = QtGui.QPushButton("Push Me")
-        widgetLayout = QtGui.QHBoxLayout()
-        widgetLayout.addWidget(widgetText)
-        widgetLayout.addWidget(widgetButton)
-        widgetLayout.addStretch()
-
-        widgetLayout.setSizeConstraint(QtGui.QLayout.SetFixedSize)
-        widget.setLayout(widgetLayout)
-        item.setSizeHint(widget.sizeHint())
-
-        # Add widget to QListWidget funList
-        self.setItemWidget(item, widget)
 
     #####################################################################
     def load_audio(self, item):
