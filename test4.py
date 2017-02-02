@@ -30,7 +30,7 @@ class MyWindow(QWidget):
 ####################################################################
 class MyDelegate(QItemDelegate):
     def __init__(self, parent=None, *args):
-        QItemDelegate.__init__(self, parent, *args)
+        QItemDelegate.__init__(self, parent)
 
     def paint(self, painter, option, index):
         painter.save()
@@ -57,7 +57,7 @@ class MyListModel(QAbstractListModel):
     def __init__(self, datain, parent=None, *args):
         """ datain: a list where each item is a row
         """
-        QAbstractTableModel.__init__(self, parent, *args)
+        QAbstractTableModel.__init__(self, parent)
         self.listdata = datain
 
     def rowCount(self, parent=QModelIndex()):

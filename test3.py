@@ -20,7 +20,7 @@ for _ in range(500):
     browser.execute_script("window.scrollBy(0,10000)")
 
 for x in browser.find_elements_by_xpath("//div[@class='rg_meta']"):
-    counter = counter + 1
+    counter += 1
     print "Total Count:", counter
     print "Succsessful Count:", succounter
     print "URL:",json.loads(x.get_attribute('innerHTML'))["ou"]
@@ -33,7 +33,7 @@ for x in browser.find_elements_by_xpath("//div[@class='rg_meta']"):
         File = open(os.path.join(searchterm , searchterm + "_" + str(counter) + "." + imgtype), "wb")
         File.write(raw_img)
         File.close()
-        succounter = succounter + 1
+        succounter += 1
     except:
             print "can't get img"
 
