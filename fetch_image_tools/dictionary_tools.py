@@ -5,10 +5,10 @@ import pygame
 import os
 from PyQt4 import QtGui, QtCore
 from PyQt4 import QtWebKit
-from general_tools import enum, OperationResult, Language
-from thread_tools import ThreadFetchAudio
-from widget_tools import Widget
-import time
+from fetch_image_tools.general_tools import enum, OperationResult, Language
+from fetch_image_tools.thread_tools import ThreadFetchAudio
+from fetch_image_tools.widget_tools import Widget
+from fetch_image_tools.graphic_tools import ProgressChord
 
 ####################################################################
 class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
@@ -29,61 +29,31 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
 
         item = self.list_widget.item(index.row())
 
-        # opt = QtGui.QStyleOptionProgressBar()
-        # opt.rect = QtCore.QRect(0, option.rect.height() * index.row(), option.rect.width(), option.rect.height())
-        # opt.minimum = 0
-        # opt.maximum = 100
-        # opt.progress = item.progress
-        # self.list_widget.style().drawControl(QtGui.QStyle.CE_ProgressBar, opt, painter)
+        radius = option.rect.height() / 2
+        center_x = option.rect.width() - radius
+        center_y = option.rect.height() * index.row() + option.rect.height() / 2
 
-        if item.status == AudioListWidget.Status.fetching:
-            radius = option.rect.height() / 2
-            center_x = option.rect.width() - radius
-            center_y = option.rect.height() * index.row() + option.rect.height() / 2
+        if item.status == AudioListWidget.Status.discovered:
+            painter.setBrush(QtGui.QBrush(QtCore.Qt.gray))
+            painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
+
+        elif item.status == AudioListWidget.Status.fetching:
+            print 'fetching ...'
             painter.setBrush(QtGui.QBrush(QtCore.Qt.yellow))
             painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
 
-            rectangle_x = center_x - radius
-            rectangle_y = center_y - radius
-            rectangle = QtCore.QRectF(rectangle_x, rectangle_y, radius * 2, radius * 2)
-            angle = (100 - item.progress) * 180 / 100
-            start_angle = angle * 16
-            span_angle = (180 - angle) * 2 * 16
             painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
-            painter.drawChord(rectangle, start_angle, span_angle)
+            progress_chord = ProgressChord(center_x, center_y, radius, item.progress)
+            painter.drawChord(progress_chord.rect, progress_chord.start_angle, progress_chord.span_angle)
 
+        elif item.status == AudioListWidget.Status.fetched:
+            print 'fetched.'
+            painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
+            painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
 
-            # width = option.rect.width() * 0.1
-            # height = option.rect.height() * 0.5
-            # x = center_x - width * 1.1
-            # y = center_y - height / 2
-            # painter.setBrush(QtGui.QBrush(QtCore.Qt.gray))
-            # painter.drawRect(x, y, width, height)
-            #
-            # border_width = 1
-            # inner_width = (100 - item.progress) * (width - (border_width * 2)) / 100
-            # inner_height = height - (border_width * 2)
-            # inner_x = x + border_width
-            # inner_y = y + border_width
-            # painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
-            # painter.drawRect(inner_x, inner_y, inner_width, inner_height)
-
-
-        # if item.status == AudioListWidget.Status.fetched:
-        #     radius = option.rect.height() / 2
-        #     center_x = option.rect.width() - radius
-        #     center_y = option.rect.height() * index.row() + option.rect.height() / 2
-        #     painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
-        #     painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
         # set text color
         painter.setPen(QtGui.QPen(QtCore.Qt.black))
         painter.drawText(option.rect, QtCore.Qt.AlignLeft, item.url)
-        # set text color
-        painter.setPen(QtGui.QPen(QtCore.Qt.green))
-        # painter.drawText(option.rect, QtCore.Qt.AlignRight, AudioListWidget.Status.names[item.status])
-
-        # item.widget_button.resize(option.rect.width(), option.rect.height())
-        # item.progress_bar.resize(option.rect.width(), option.rect.height())
 
         painter.restore()
 

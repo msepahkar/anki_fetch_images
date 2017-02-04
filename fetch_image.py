@@ -102,8 +102,8 @@ w.show()
 
 app.exec_()
 
-if w.full_image_file_name is not None:
-    print w.full_image_file_name
+# if w.full_image_file_name is not None:
+#     print w.full_image_file_name
 
 
 

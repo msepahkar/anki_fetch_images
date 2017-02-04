@@ -3,6 +3,30 @@ import sys
 import time
 
 
+class ProgressChord:
+    ####################################################################
+    def __init__(self, center_x, center_y, radius, progress=0):
+        self.center_x = center_x
+        self.center_y = center_y
+        self.radius = radius
+        rect_x = self.center_x - self.radius
+        rect_y = self.center_y - self.radius
+        rect_width = self.radius * 2
+        rect_height = self.radius * 2
+        self.rect = QtCore.QRect(rect_x, rect_y, rect_width, rect_height)
+        self.progress = progress
+        self.start_angle = 0
+        self.span_angle = 0
+        self.update_progress(self.progress)
+
+    ####################################################################
+    def update_progress(self, progress):
+        self.progress = progress
+        angle = 180 - self.progress * 180 / 100
+        self.start_angle = angle * 16
+        self.span_angle = (180 - angle) * 2 * 16
+        print angle, self.span_angle / 16
+
 ####################################################################
 class MyThread(QtCore.QThread):
     def __init__(self, item):
@@ -11,10 +35,8 @@ class MyThread(QtCore.QThread):
 
     #####################################################################
     def run(self):
-        for angle in range(180, 0, -1):
-            start_angle = angle * 16
-            span_angle = (180 - angle) * 2 * 16
-            self.item.set_angles(start_angle, span_angle)
+        for progress in range(101):
+            self.item.update_progress(progress)
             time.sleep(0.05)
 
 ####################################################################
@@ -34,13 +56,11 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate):
 
         center_x = option.rect.width() * 4 / 5
         center_y = option.rect.height() * index.row() + option.rect.height() / 2
-        painter.setBrush(QtGui.QBrush(QtCore.Qt.white))
-        painter.drawEllipse(QtCore.QPointF(center_x, center_y), 10, 10)
+        radius = 60
+        progress_chord = ProgressChord(center_x, center_y, radius, self.list_widget.item(0).progress)
+
         painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
-        rectangle = QtCore.QRectF(10.0, 20.0, 60.0, 60.0)
-        startAngle = self.list_widget.item(0).start_angle
-        spanAngle = self.list_widget.item(0).span_angle
-        painter.drawChord(rectangle, startAngle, spanAngle)
+        painter.drawChord(progress_chord.rect, progress_chord.start_angle, progress_chord.span_angle)
 
         painter.restore()
 
@@ -54,10 +74,9 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         self.url = url
 
     #####################################################################
-    def set_angles(self, start_angle, span_angle):
-        self.start_angle = start_angle
-        self.span_angle = span_angle
-        self.setText(str(self.start_angle))
+    def update_progress(self, progress):
+        self.progress = progress
+        self.setText(str(self.progress))
 
 
 #####################################################################
