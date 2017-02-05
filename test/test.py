@@ -57,10 +57,13 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate):
         center_x = option.rect.width() * 4 / 5
         center_y = option.rect.height() * index.row() + option.rect.height() / 2
         radius = 60
-        progress_chord = ProgressChord(center_x, center_y, radius, self.list_widget.item(0).progress)
 
-        painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
-        painter.drawChord(progress_chord.rect, progress_chord.start_angle, progress_chord.span_angle)
+        painter.setPen(QtGui.QPen(QtCore.Qt.black))
+        painter.drawLine(center_x, center_y, center_x - 2 * radius, center_y)
+        # progress_chord = ProgressChord(center_x, center_y, radius, self.list_widget.item(0).progress)
+        #
+        # painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
+        # painter.drawChord(progress_chord.rect, progress_chord.start_angle, progress_chord.span_angle)
 
         painter.restore()
 

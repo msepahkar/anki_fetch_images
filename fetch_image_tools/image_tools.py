@@ -219,7 +219,6 @@ class ImageTab(Widget, OperationResult):
         self.thread_fetch_image_urls.quit()
         for thread in self.threads_fetch_image:
             thread.quit()
-        print('image tab {} {} quitted'.format(self.word, self.image_type))
 
     ###########################################################
     def terminate(self):
@@ -227,7 +226,6 @@ class ImageTab(Widget, OperationResult):
         self.thread_fetch_image_urls.terminate()
         for thread in self.threads_fetch_image:
             thread.terminate()
-        print('image tab {} {} terminated'.format(self.word, self.image_type))
 
     ###########################################################
     def start_fetching(self):

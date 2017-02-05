@@ -92,7 +92,8 @@ class MainDialog(Dialog):
             tab_dictionary.quit()
         for tab_image in self.findChildren(ImageTab):
             tab_image.terminate()
-
+        for tab_dictionary in self.findChildren(DictionaryTab):
+            tab_dictionary.terminate()
 
 app = QtGui.QApplication(sys.argv)
 
@@ -102,8 +103,6 @@ w.show()
 
 app.exec_()
 
-# if w.full_image_file_name is not None:
-#     print w.full_image_file_name
 
 
 

@@ -113,17 +113,15 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
     # *************************
     def run(self):
-        print 'fetching image addresses ...'
-
         header = {
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
         }
 
         if not self.quit_request:
             self.emit(ThreadFetchImageUrls.signal_urls_fetching_started)
-            openned_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
+            opened_url = urllib2.urlopen(urllib2.Request(self.url, headers=header))
 
-            page = StringIO(openned_url.read())
+            page = StringIO(opened_url.read())
 
             # find the directory the pronunciation
             pattern = re.compile('<img.*?>')
@@ -139,13 +137,8 @@ class ThreadFetchImageUrls(QtCore.QThread):
                     image_urls.append((cntr, url))
                     cntr += 1
 
-            print len(image_urls), 'image urls fetched.'
             if not self.quit_request:
                 self.emit(ThreadFetchImageUrls.signal_urls_fetched, image_urls)
-            else:
-                print 'quitting url fetching thread ...'
-        else:
-            print 'quitting url fetching thread ...'
 
     # *************************
     def quit(self):
@@ -180,7 +173,6 @@ class ThreadFetchAudio(QtCore.QThread):
             response = urllib2.urlopen(urllib2.Request(str(self.url), headers=header))
             buffer_ = chunk_read(response, report_hook=self.report)
         except ThreadQuitException:
-            print 'quitting audio fetch thread ...'
             return
 
         with open(self.f_name, 'wb') as f:

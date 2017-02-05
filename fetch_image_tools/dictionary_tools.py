@@ -3,12 +3,47 @@
 import tempfile
 import pygame
 import os
+import math
 from PyQt4 import QtGui, QtCore
 from PyQt4 import QtWebKit
 from fetch_image_tools.general_tools import enum, OperationResult, Language
 from fetch_image_tools.thread_tools import ThreadFetchAudio
 from fetch_image_tools.widget_tools import Widget
-from fetch_image_tools.graphic_tools import ProgressChord
+
+
+class ProgressCircle:
+    ####################################################################
+    def __init__(self, option, index):
+        radius = option.rect.height() / 2
+        center_x = option.rect.width() - radius
+        center_y = option.rect.height() * index.row() + option.rect.height() / 2
+        rect_x = center_x - radius
+        rect_y = center_y - radius
+        rect_width = radius * 2
+        rect_height = radius * 2
+        self.rect = QtCore.QRect(rect_x, rect_y, rect_width, rect_height)
+        x1 = center_x - float(radius) / math.sqrt(2)
+        y1 = center_y - float(radius) / math.sqrt(2)
+        x2 = center_x + float(radius) / math.sqrt(2)
+        y2 = center_y + float(radius) / math.sqrt(2)
+        line1 = QtCore.QLine(x1, y1, x2, y2)
+        line2 = QtCore.QLine(x2, y1, x1, y2)
+        self.lines = [line1, line2]
+        self.start_angle = 0
+        self.span_angle = 0
+
+    ####################################################################
+    def update_progress(self, progress):
+        angle = 180 - progress * 180 / 100
+        self.start_angle = angle * 16
+        self.span_angle = (180 - angle) * 2 * 16
+
+    ####################################################################
+    def is_inside(self, pos):
+        if self.rect.x() <= pos.x() <= self.rect.x() + self.rect.width() and\
+            self.rect.y() <= pos.y() <= self.rect.y() + self.rect.height():
+            return True
+        return False
 
 ####################################################################
 class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
@@ -29,27 +64,29 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
 
         item = self.list_widget.item(index.row())
 
-        radius = option.rect.height() / 2
-        center_x = option.rect.width() - radius
-        center_y = option.rect.height() * index.row() + option.rect.height() / 2
+        item.progress_circle = ProgressCircle(option, index)
 
         if item.status == AudioListWidget.Status.discovered:
             painter.setBrush(QtGui.QBrush(QtCore.Qt.gray))
-            painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
+            painter.drawEllipse(item.progress_circle.rect)
 
         elif item.status == AudioListWidget.Status.fetching:
-            print 'fetching ...'
+            painter.setPen(QtGui.QPen(QtCore.Qt.black))
             painter.setBrush(QtGui.QBrush(QtCore.Qt.yellow))
-            painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
+            painter.drawEllipse(item.progress_circle.rect)
 
             painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
-            progress_chord = ProgressChord(center_x, center_y, radius, item.progress)
-            painter.drawChord(progress_chord.rect, progress_chord.start_angle, progress_chord.span_angle)
+            item.progress_circle.update_progress(item.progress)
+            painter.drawChord(item.progress_circle.rect,
+                              item.progress_circle.start_angle,
+                              item.progress_circle.span_angle)
+
+            painter.setPen(QtGui.QPen(QtCore.Qt.black))
+            painter.drawLines(item.progress_circle.lines)
 
         elif item.status == AudioListWidget.Status.fetched:
-            print 'fetched.'
             painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
-            painter.drawEllipse(QtCore.QPointF(center_x, center_y), radius, radius)
+            painter.drawEllipse(item.progress_circle.rect)
 
         # set text color
         painter.setPen(QtGui.QPen(QtCore.Qt.black))
@@ -68,22 +105,23 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         f.close()
         self.audio_file = f.name
         self.status = AudioListWidget.Status.discovered
-        self.set_status(self.status)
+        self.setText(AudioListWidget.Status.names[self.status])
         self.progress = 0
-        self.fetching_thread = ThreadFetchAudio(url, f.name)
-        QtCore.QObject.connect(self.fetching_thread, ThreadFetchAudio.signal_audio_fetched, self.audio_fetched)
-        QtCore.QObject.connect(self.fetching_thread, ThreadFetchAudio.signal_audio_fetching_progress, self.update_progress)
+        self.progress_circle = None
+        self.thread = ThreadFetchAudio(url, f.name)
+        QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetched, self.audio_fetched)
+        QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetching_progress, self.update_progress)
 
     #####################################################################
     def audio_fetched(self, ok):
         if ok:
-            self.set_status(AudioListWidget.Status.fetched)
+            self.update_status(AudioListWidget.Status.fetched)
             self.play_audio()
         else:
-            self.set_status(AudioListWidget.Status.failed)
+            self.update_status(AudioListWidget.Status.failed)
 
     #####################################################################
-    def set_status(self, status):
+    def update_status(self, status):
         self.status = status
         self.setText(AudioListWidget.Status.names[self.status])
 
@@ -99,8 +137,8 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         if self.status == AudioListWidget.Status.fetched:
             self.play_audio()
             return
-        self.set_status(AudioListWidget.Status.fetching)
-        self.fetching_thread.start()
+        self.update_status(AudioListWidget.Status.fetching)
+        self.thread.start()
 
     #####################################################################
     def play_audio(self):
@@ -140,9 +178,9 @@ class AudioListWidget(QtGui.QListWidget):
     #####################################################################
     def mousePressEvent(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
-            width = self.rectForIndex(self.indexFromItem(self.itemAt(event.pos()))).width()
-            x = event.pos().x()
-            if width > 0 and x * 100 / width > 70:
+            item = self.itemAt(event.pos())
+            if item and item.progress_circle and item.progress_circle.is_inside(event.pos()):
+                item.thread.quit()
                 print 'heyyyyyyyyyy'
         return QtGui.QListWidget.mousePressEvent(self, event)
 
@@ -325,8 +363,15 @@ class Browser(Widget):
         self.inline_browser.stop()
         for i in range(self.audio_list.count()):
             item = self.audio_list.item(i)
+            item.thread.quit()
             if os.path.exists(item.audio_file):
                 os.remove(item.audio_file)
+
+    #####################################################################
+    def terminate(self):
+        for i in range(self.audio_list.count()):
+            item = self.audio_list.item(i)
+            item.thread.terminate()
 
 
 #####################################################################
@@ -398,6 +443,9 @@ class DictionaryTab(Widget, OperationResult):
     #####################################################################
     def quit(self):
         self.browser.quit()
-        print('dictionary {} quited.'.format(self.name))
+
+    #####################################################################
+    def terminate(self):
+        self.browser.terminate()
 
 
