@@ -40,10 +40,11 @@ class ProgressCircle:
 
     ####################################################################
     def is_inside(self, pos):
-        if self.rect.x() <= pos.x() <= self.rect.x() + self.rect.width() and\
-            self.rect.y() <= pos.y() <= self.rect.y() + self.rect.height():
-            return True
+        if self.rect.x() <= pos.x() <= self.rect.x() + self.rect.width():
+            if self.rect.y() <= pos.y() <= self.rect.y() + self.rect.height():
+                return True
         return False
+
 
 ####################################################################
 class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
