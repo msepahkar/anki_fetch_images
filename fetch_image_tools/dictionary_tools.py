@@ -45,6 +45,7 @@ class ProgressCircle:
             return True
         return False
 
+
 ####################################################################
 class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
     def __init__(self, list_widget, parent=None):
@@ -88,6 +89,10 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
             painter.setBrush(QtGui.QBrush(QtCore.Qt.green))
             painter.drawEllipse(item.progress_circle.rect)
 
+        elif item.status == AudioListWidget.Status.failed:
+            painter.setBrush(QtGui.QBrush(QtCore.Qt.red))
+            painter.drawEllipse(item.progress_circle.rect)
+
         # set text color
         painter.setPen(QtGui.QPen(QtCore.Qt.black))
         painter.drawText(option.rect, QtCore.Qt.AlignLeft, item.url)
@@ -104,13 +109,18 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         f = tempfile.NamedTemporaryFile(delete=False)
         f.close()
         self.audio_file = f.name
-        self.status = AudioListWidget.Status.discovered
-        self.setText(AudioListWidget.Status.names[self.status])
+        self._status = AudioListWidget.Status.discovered
+        self.setText(AudioListWidget.Status.names[self._status])
         self.progress = 0
         self.progress_circle = None
         self.thread = ThreadFetchAudio(url, f.name)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetched, self.audio_fetched)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetching_progress, self.update_progress)
+
+    #####################################################################
+    @property
+    def status(self):
+        return self._status
 
     #####################################################################
     def audio_fetched(self, ok):
@@ -122,8 +132,8 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
 
     #####################################################################
     def update_status(self, status):
-        self.status = status
-        self.setText(AudioListWidget.Status.names[self.status])
+        self._status = status
+        self.setText(AudioListWidget.Status.names[self._status])
 
     #####################################################################
     def update_progress(self, current_bytes, total_bytes):
@@ -132,13 +142,32 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
 
     #####################################################################
     def load_audio(self):
-        if self.status == AudioListWidget.Status.fetching:
+        if self._status == AudioListWidget.Status.failed:
             return
-        if self.status == AudioListWidget.Status.fetched:
+        if self.thread.isRunning():
+            return
+        if self._status == AudioListWidget.Status.fetched:
             self.play_audio()
             return
         self.update_status(AudioListWidget.Status.fetching)
         self.thread.start()
+
+    #####################################################################
+    def reload_audio(self):
+        if self.thread.isRunning():
+            return
+        if self._status == AudioListWidget.Status.fetched:
+            self.play_audio()
+            return
+        self.update_status(AudioListWidget.Status.fetching)
+        self.thread.start()
+
+    #####################################################################
+    def stop_loading_audio(self):
+        if self._status == AudioListWidget.Status.fetching:
+            self.thread.quit()
+            self.thread.stop()
+            self.update_status(AudioListWidget.Status.failed)
 
     #####################################################################
     def play_audio(self):
@@ -180,8 +209,10 @@ class AudioListWidget(QtGui.QListWidget):
         if event.buttons() == QtCore.Qt.LeftButton:
             item = self.itemAt(event.pos())
             if item and item.progress_circle and item.progress_circle.is_inside(event.pos()):
-                item.thread.quit()
-                print 'heyyyyyyyyyy'
+                if item.status == AudioListWidget.Status.fetching:
+                    item.stop_loading_audio()
+                else:
+                    item.reload_audio()
         return QtGui.QListWidget.mousePressEvent(self, event)
 
 
@@ -248,6 +279,7 @@ class Browser(Widget):
     signal_started = QtCore.SIGNAL("Browser.started")
     signal_progress = QtCore.SIGNAL("Browser.progress")
     signal_finished = QtCore.SIGNAL("Browser.finished")
+
     #####################################################################
     def __init__(self, mother):
         super(Browser, self).__init__(mother)

@@ -60,6 +60,7 @@ class ThreadFetchImage(QtCore.QThread):
 
     # *************************
     def run(self):
+        self.quit_request = False
         while len(self.image_urls) > 0:
             with self.lock:
                 # check if any note is left
@@ -113,6 +114,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
     # *************************
     def run(self):
+        self.quit_request = False
         header = {
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
         }
@@ -165,6 +167,7 @@ class ThreadFetchAudio(QtCore.QThread):
 
     # *************************
     def run(self):
+        self.quit_request = False
         header = {
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
         }
