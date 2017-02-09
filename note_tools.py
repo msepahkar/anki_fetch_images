@@ -1,13 +1,35 @@
+from fetch_image_tools.dictionary_tools import Language
+
+
+class Note:
+    def __init__(self, main_word, language, fields, values):
+        self.main_word = main_word
+        self.language = language
+        self.fields = fields
+        self.values = values
+        self.model = ''
+
+
 ###########################################################
 def get_model(note):
-    model = ''
-    if note is not None:
-        model = note.model()['name']
-    return model
-
+    return note.model
 
 ###########################################################
 def get_fields(note):
-    fields = ['hi','bye', 'how are you']
-    values = ['ok', 'never mind', 'bye']
-    return fields, values
+    return note.fields, note.values
+
+
+###########################################################
+def get_main_word(note):
+    return note.main_word
+
+
+###########################################################
+def get_language(note):
+    return note.language
+
+###########################################################
+def get_meida_dir(note):
+    return ''
+
+
