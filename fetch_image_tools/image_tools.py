@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from PyQt4 import QtGui, QtCore
-import ImageQt
 import threading
 from PIL.ImageQt import ImageQt
 from general_tools import enum, OperationResult, ImageType

@@ -4,7 +4,7 @@ import re
 import urllib2, urllib
 from StringIO import StringIO
 from PyQt4 import QtCore
-import Image
+from PIL import Image
 from general_tools import Language, ImageType
 
 import urllib2, sys

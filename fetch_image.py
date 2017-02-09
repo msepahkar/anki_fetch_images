@@ -13,7 +13,7 @@ from fetch_image_tools.image_tools import ImageTab
 #####################################################################
 class MainDialog(Dialog):
     # *************************
-    def __init__(self, word, language, media_dir, parent=None):
+    def __init__(self, word, language, media_dir, note, parent=None):
         super(MainDialog, self).__init__(parent)
 
         pygame.init()
@@ -94,14 +94,6 @@ class MainDialog(Dialog):
             tab_image.terminate()
         for tab_dictionary in self.findChildren(DictionaryTab):
             tab_dictionary.terminate()
-
-app = QtGui.QApplication(sys.argv)
-
-w = MainDialog('hello', Language.english, '/home/mehdi')
-
-w.show()
-
-app.exec_()
 
 
 
