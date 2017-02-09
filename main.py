@@ -6,7 +6,7 @@ from fetch_image_tools.dictionary_tools import Language
 
 app = QtGui.QApplication(sys.argv)
 
-w = MainDialog('hello', Language.english, '/home/mehdi')
+w = MainDialog('hello', Language.english, 'hi', '/home/mehdi')
 
 w.show()
 

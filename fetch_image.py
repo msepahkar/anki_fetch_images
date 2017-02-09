@@ -8,6 +8,7 @@ from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import Dialog, TabWidgetProgress, Widget
 from fetch_image_tools.dictionary_tools import DictionaryTab
 from fetch_image_tools.image_tools import ImageTab
+from note_tools import get_fields, get_model
 
 
 #####################################################################
@@ -20,6 +21,7 @@ class MainDialog(Dialog):
 
         self.word = word
         self.media_dir = media_dir
+        self.note = note
         self.full_image_file_name = None
         self.selected_image = None
 
@@ -33,6 +35,9 @@ class MainDialog(Dialog):
         # word fields
         self.main_tab_widget.tab_word_fields = Widget(self.main_tab_widget)
         self.main_tab_widget.addTab(self.main_tab_widget.tab_word_fields, 'word')
+
+        # main word
+        self.add_word_fields(self.note)
 
         # dictionaries
         self.main_tab_widget.tab_dictionaries = TabWidgetProgress(mother=self.main_tab_widget)
@@ -63,6 +68,19 @@ class MainDialog(Dialog):
         self.layout.addWidget(self.main_tab_widget)
         self.status_line = QtGui.QLabel('no status')
         self.layout.addWidget(self.status_line)
+
+    ###########################################################
+    def add_word_fields(self, note):
+        layout = QtGui.QVBoxLayout()
+        fields, values = get_fields(note)
+        for i in range(len(fields)):
+            label = QtGui.QLabel(fields[i])
+            line = QtGui.QTextEdit(values[i])
+            h_layout = QtGui.QHBoxLayout()
+            h_layout.addWidget(label)
+            h_layout.addWidget(line)
+            layout.addLayout(h_layout)
+        self.main_tab_widget.tab_word_fields.setLayout(layout)
 
     ###########################################################
     def add_dictionary_tabs(self, word, language):
