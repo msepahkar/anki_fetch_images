@@ -74,12 +74,10 @@ class ThreadFetchImage(QtCore.QThread):
                     f_name, header = urllib.urlretrieve(image_url, reporthook=self.url_retrieve_report)
                     image = Image.open(f_name).convert("RGB")
                     self.emit(ThreadFetchImage.signal_image_fetched, image_number, image)
-                    print image_number, 'ok'
                 except ThreadQuitException:
                     print 'quitting thread ...'
                 except Exception as e:
                     self.emit(ThreadFetchImage.signal_image_ignored, image_number)
-                    print image_number, 'bad image', e
             else:
                 print 'quitting thread ...'
                 break

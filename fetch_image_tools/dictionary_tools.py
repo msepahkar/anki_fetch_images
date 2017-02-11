@@ -11,6 +11,7 @@ from thread_tools import ThreadFetchAudio
 from widget_tools import Widget
 
 
+####################################################################
 class ProgressCircle:
     ####################################################################
     def __init__(self, option, index):
@@ -420,29 +421,22 @@ class DictionaryTab(Widget, OperationResult):
                                      ('forvo', 'https://forvo.com/search/')]
 
     #####################################################################
-    def __init__(self, address_pair, mother, parent=None):
+    def __init__(self, address_pair, word, mother, parent=None):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
-        self.started = False
+        self.browsing_started = False
         self.name = address_pair[0]
         self.web_address = address_pair[1]
-        self.word = None
+        self.word = word
+        word = word.split()
+        word = '+'.join(word)
+        self.url = self.web_address + word
         self.browser = Browser(self)
         self.connect(self.browser, Browser.signal_started, lambda: self.update_status(InlineBrowser.SignalType.started))
         self.connect(self.browser, Browser.signal_progress, lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
         self.connect(self.browser, Browser.signal_finished, lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
-
-    #####################################################################
-    def browse(self, word):
-        if not self.started:
-            self.started = True
-            self.word = word
-            word = word.split()
-            word = '+'.join(word)
-            url = self.web_address + word
-            self.browser.go(url)
 
     #####################################################################
     def update_status(self, singal_type, param=None):
@@ -481,4 +475,9 @@ class DictionaryTab(Widget, OperationResult):
     def terminate(self):
         self.browser.terminate()
 
+    #####################################################################
+    def start(self):
+        if not self.browsing_started:
+            self.browsing_started = True
+            self.browser.go(self.url)
 

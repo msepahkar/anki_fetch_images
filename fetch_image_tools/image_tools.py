@@ -89,6 +89,7 @@ class ImageTab(Widget, OperationResult):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
         self.quit_request = False
+        self.fetching_started = False
         self.n_urls = 0
         self.n_fetched = 0
         self.n_ignored = 0
@@ -227,10 +228,9 @@ class ImageTab(Widget, OperationResult):
             thread.terminate()
 
     ###########################################################
-    def start_fetching(self):
-        if not self.started:
-            self.started = True
+    def start(self):
+        if not self.fetching_started:
+            self.fetching_started = True
             self.thread_fetch_image_urls.start()
-            self.started = True
 
 

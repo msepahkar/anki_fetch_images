@@ -88,9 +88,11 @@ class MainDialog(Dialog):
         main_tab = self.main_tab_widgets[note]
         main_tab.show()
         for dictionary_tab in main_tab.findChildren(DictionaryTab):
-            dictionary_tab.browse(note.main_word)
+            if not dictionary_tab.browsing_started:
+                dictionary_tab.start()
         for image_tab in main_tab.findChildren(ImageTab):
-            image_tab.start_fetching()
+            if not image_tab.fetching_started:
+                image_tab.start()
 
 
     ###########################################################
@@ -126,9 +128,8 @@ class MainDialog(Dialog):
         tab = TabWidgetProgress(mother=self.main_tab_widgets[note].tab_dictionaries, closable=True)
         self.main_tab_widgets[note].tab_dictionaries.addTab(tab, note.main_word)
         for dictionary in DictionaryTab.dictionaries[note.language]:
-            dictionary_tab = DictionaryTab(dictionary, mother=tab)
+            dictionary_tab = DictionaryTab(dictionary, note.main_word, mother=tab)
             tab.addTab(dictionary_tab, dictionary_tab.name)
-            # dictionary_tab.browse(note.main_word)
 
     ###########################################################
     def add_image_tabs(self, note):
@@ -138,7 +139,6 @@ class MainDialog(Dialog):
         for image_type in sorted(ImageType.items, key=lambda x:x):
             image_tab = ImageTab(note.main_word, note.language, image_type, mother=tab)
             tab.addTab(image_tab, ImageType.names[image_type])
-            # image_tab.start_fetching()
 
     ###########################################################
     def closeEvent(self, QCloseEvent):
