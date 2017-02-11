@@ -228,7 +228,9 @@ class ImageTab(Widget, OperationResult):
 
     ###########################################################
     def start_fetching(self):
-        self.thread_fetch_image_urls.start()
-        self.started = True
+        if not self.started:
+            self.started = True
+            self.thread_fetch_image_urls.start()
+            self.started = True
 
 

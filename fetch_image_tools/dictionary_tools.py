@@ -423,6 +423,7 @@ class DictionaryTab(Widget, OperationResult):
     def __init__(self, address_pair, mother, parent=None):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
+        self.started = False
         self.name = address_pair[0]
         self.web_address = address_pair[1]
         self.word = None
@@ -435,11 +436,13 @@ class DictionaryTab(Widget, OperationResult):
 
     #####################################################################
     def browse(self, word):
-        self.word = word
-        word = word.split()
-        word = '+'.join(word)
-        url = self.web_address + word
-        self.browser.go(url)
+        if not self.started:
+            self.started = True
+            self.word = word
+            word = word.split()
+            word = '+'.join(word)
+            url = self.web_address + word
+            self.browser.go(url)
 
     #####################################################################
     def update_status(self, singal_type, param=None):

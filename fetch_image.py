@@ -28,7 +28,6 @@ class MainDialog(Dialog):
         if len(notes) > 0:
             self.media_dir = get_meida_dir(notes[0])
 
-        self.current_note_index = -1
         # window
         self.resize(1000, 1000)
 
@@ -46,7 +45,6 @@ class MainDialog(Dialog):
         self.main_layout.addLayout(layout)
 
         for note in notes:
-            self.current_note_index += 1
             self.words[note] = get_main_word(note)
             self.languages[note] = get_language(note)
             self.full_image_file_names[note] = None
@@ -67,36 +65,47 @@ class MainDialog(Dialog):
             self.main_tab_widgets[note].addTab(self.main_tab_widgets[note].tab_dictionaries, 'dictinoaries')
 
             # main word dictionaries
-            self.add_dictionary_tabs(self.words[note], self.languages[note])
+            self.add_dictionary_tabs(note)
 
             # images
             self.main_tab_widgets[note].tab_images = TabWidgetProgress(mother=self.main_tab_widgets[note])
             self.main_tab_widgets[note].addTab(self.main_tab_widgets[note].tab_images, 'images')
 
             # main word images
-            self.add_image_tabs(self.words[note], self.languages[note])
+            self.add_image_tabs(note)
 
             self.main_layout.addWidget(self.main_tab_widgets[note])
             self.main_tab_widgets[note].hide()
 
+        self.current_note_index = 0
         self.setWindowTitle(self.words[self.notes[self.current_note_index]])
-        self.main_tab_widgets[notes[self.current_note_index]].show()
+        self.show_main_tab(notes[self.current_note_index])
+
+
+    ###########################################################
+    def show_main_tab(self, note):
+        self.setWindowTitle(note.main_word)
+        main_tab = self.main_tab_widgets[note]
+        main_tab.show()
+        for dictionary_tab in main_tab.findChildren(DictionaryTab):
+            dictionary_tab.browse(note.main_word)
+        for image_tab in main_tab.findChildren(ImageTab):
+            image_tab.start_fetching()
+
 
     ###########################################################
     def next_note(self):
         if self.current_note_index + 1 < len(self.main_tab_widgets):
             self.main_tab_widgets[self.notes[self.current_note_index]].hide()
             self.current_note_index += 1
-            self.setWindowTitle(self.words[self.notes[self.current_note_index]])
-            self.main_tab_widgets[self.notes[self.current_note_index]].show()
+            self.show_main_tab(self.notes[self.current_note_index])
 
     ###########################################################
     def previous_note(self):
         if self.current_note_index > 0:
             self.main_tab_widgets[self.notes[self.current_note_index]].hide()
             self.current_note_index -= 1
-            self.setWindowTitle(self.words[self.notes[self.current_note_index]])
-            self.main_tab_widgets[self.notes[self.current_note_index]].show()
+            self.show_main_tab(self.notes[self.current_note_index])
 
     ###########################################################
     def add_word_fields(self, note):
@@ -112,24 +121,24 @@ class MainDialog(Dialog):
         self.main_tab_widgets[note].tab_word_fields.setLayout(layout)
 
     ###########################################################
-    def add_dictionary_tabs(self, word, language):
+    def add_dictionary_tabs(self, note):
         # english dictionaries
-        tab = TabWidgetProgress(mother=self.main_tab_widgets[self.notes[self.current_note_index]].tab_dictionaries, closable=True)
-        self.main_tab_widgets[self.notes[self.current_note_index]].tab_dictionaries.addTab(tab, word)
-        for dictionary in DictionaryTab.dictionaries[language]:
+        tab = TabWidgetProgress(mother=self.main_tab_widgets[note].tab_dictionaries, closable=True)
+        self.main_tab_widgets[note].tab_dictionaries.addTab(tab, note.main_word)
+        for dictionary in DictionaryTab.dictionaries[note.language]:
             dictionary_tab = DictionaryTab(dictionary, mother=tab)
             tab.addTab(dictionary_tab, dictionary_tab.name)
-            dictionary_tab.browse(word)
+            # dictionary_tab.browse(note.main_word)
 
     ###########################################################
-    def add_image_tabs(self, word, language):
-        tab = TabWidgetProgress(mother=self.main_tab_widgets[self.notes[self.current_note_index]].tab_images, closable=True)
-        self.main_tab_widgets[self.notes[self.current_note_index]].tab_images.addTab(tab, word)
+    def add_image_tabs(self, note):
+        tab = TabWidgetProgress(mother=self.main_tab_widgets[note].tab_images, closable=True)
+        self.main_tab_widgets[note].tab_images.addTab(tab, note.main_word)
 
-        for image_type in ImageType.items:
-            image_tab = ImageTab(word, language, image_type, mother=tab)
+        for image_type in sorted(ImageType.items, key=lambda x:x):
+            image_tab = ImageTab(note.main_word, note.language, image_type, mother=tab)
             tab.addTab(image_tab, ImageType.names[image_type])
-            image_tab.start_fetching()
+            # image_tab.start_fetching()
 
     ###########################################################
     def closeEvent(self, QCloseEvent):
