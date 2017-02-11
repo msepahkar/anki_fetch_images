@@ -3,7 +3,7 @@ import sys
 from PyQt4 import QtGui
 from fetch_image import MainDialog
 from fetch_image_tools.dictionary_tools import Language
-from note_tools import Note
+from fetch_image_note_tools import Note
 
 n1 = Note('ali', Language.english, ['f1', 'f2', 'f3'], ['ali', 'v2', 'v3'])
 n2 = Note('reza', Language.english, ['f1', 'f2', 'f3'], ['reza', 'v2', 'v3'])

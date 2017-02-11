@@ -8,7 +8,7 @@ from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import Dialog, TabWidgetProgress, Widget
 from fetch_image_tools.dictionary_tools import DictionaryTab
 from fetch_image_tools.image_tools import ImageTab
-from note_tools import get_fields, get_model, get_language, get_main_word, get_meida_dir
+from fetch_image_note_tools import get_fields, get_model, get_language, get_main_word, get_meida_dir
 
 
 #####################################################################
@@ -84,7 +84,7 @@ class MainDialog(Dialog):
 
     ###########################################################
     def show_main_tab(self, note):
-        self.setWindowTitle(note.main_word)
+        self.setWindowTitle(get_main_word(note))
         main_tab = self.main_tab_widgets[note]
         main_tab.show()
         for dictionary_tab in main_tab.findChildren(DictionaryTab):
@@ -126,18 +126,18 @@ class MainDialog(Dialog):
     def add_dictionary_tabs(self, note):
         # english dictionaries
         tab = TabWidgetProgress(mother=self.main_tab_widgets[note].tab_dictionaries, closable=True)
-        self.main_tab_widgets[note].tab_dictionaries.addTab(tab, note.main_word)
-        for dictionary in DictionaryTab.dictionaries[note.language]:
-            dictionary_tab = DictionaryTab(dictionary, note.main_word, mother=tab)
+        self.main_tab_widgets[note].tab_dictionaries.addTab(tab, get_main_word(note))
+        for dictionary in DictionaryTab.dictionaries[get_language(note)]:
+            dictionary_tab = DictionaryTab(dictionary, get_main_word(note), mother=tab)
             tab.addTab(dictionary_tab, dictionary_tab.name)
 
     ###########################################################
     def add_image_tabs(self, note):
         tab = TabWidgetProgress(mother=self.main_tab_widgets[note].tab_images, closable=True)
-        self.main_tab_widgets[note].tab_images.addTab(tab, note.main_word)
+        self.main_tab_widgets[note].tab_images.addTab(tab, get_main_word(note))
 
         for image_type in sorted(ImageType.items, key=lambda x:x):
-            image_tab = ImageTab(note.main_word, note.language, image_type, mother=tab)
+            image_tab = ImageTab(get_main_word(note), get_language(note), image_type, mother=tab)
             tab.addTab(image_tab, ImageType.names[image_type])
 
     ###########################################################
