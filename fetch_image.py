@@ -81,7 +81,6 @@ class MainDialog(Dialog):
         self.setWindowTitle(self.words[self.notes[self.current_note_index]])
         self.show_main_tab(notes[self.current_note_index])
 
-
     ###########################################################
     def show_main_tab(self, note):
         self.setWindowTitle(get_main_word(note))
@@ -93,7 +92,6 @@ class MainDialog(Dialog):
         for image_tab in main_tab.findChildren(ImageTab):
             if not image_tab.fetching_started:
                 image_tab.start()
-
 
     ###########################################################
     def next_note(self):

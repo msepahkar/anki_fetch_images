@@ -107,16 +107,53 @@ class ImageTab(Widget, OperationResult):
 
     ###########################################################
     def add_layout(self):
+        # base vertical layout
+        self.vertical_layout = QtGui.QVBoxLayout(self)
+
+        # header
+        header_layout = QtGui.QHBoxLayout()
+
+        button = QtGui.QPushButton(u"◀")
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        # button.clicked.connect(self.backward)
+
+        button = QtGui.QPushButton(u"▶")
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        # button.clicked.connect(self.forward)
+
+        button = QtGui.QPushButton(u'✘')
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.stop)
+
+        button = QtGui.QPushButton(u"↻")
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.restart)
+
+        self.address_line = QtGui.QLineEdit()
+        header_layout.addWidget(self.address_line)
+
+        button = QtGui.QPushButton(u'✔')
+        button.setFixedSize(35, 30)
+        button.setStyleSheet("font-size:18px;")
+        header_layout.addWidget(button)
+        button.clicked.connect(self.restart)
+
+        self.vertical_layout.addLayout(header_layout)
+
         # scroll area
         self.scroll_area = QtGui.QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area_widget_contents = Widget(mother=self, parent=self.scroll_area)
         self.scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
         self.scroll_area.setWidget(self.scroll_area_widget_contents)
-
-        # layouts
-        # base vertical layout
-        self.vertical_layout = QtGui.QVBoxLayout(self)
 
         self.vertical_layout.addWidget(self.scroll_area)
         # scrollable vertical layout
@@ -232,5 +269,17 @@ class ImageTab(Widget, OperationResult):
         if not self.fetching_started:
             self.fetching_started = True
             self.thread_fetch_image_urls.start()
+
+    ###########################################################
+    def restart(self):
+        self.stop()
+        self.start()
+
+    ###########################################################
+    def stop(self):
+        if self.fetching_started:
+            self.quit()
+            self.terminate()
+            self.fetching_started = False
 
 
