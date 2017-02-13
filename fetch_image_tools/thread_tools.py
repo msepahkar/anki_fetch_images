@@ -95,16 +95,23 @@ class ThreadFetchImageUrls(QtCore.QThread):
     # *************************
     def __init__(self, word, language, image_type):
         super(ThreadFetchImageUrls, self).__init__(None)
-        query = word
-        if image_type == ImageType.clipart:
+        self.word = word
+        self.language = language
+        self.image_type = image_type
+        self.url = None
+
+    # *************************
+    def create_url(self):
+        query = self.word
+        if self.image_type == ImageType.clipart:
             query += ' clipart'
-        elif image_type == ImageType.line_drawing:
+        elif self.image_type == ImageType.line_drawing:
             query += ' line drawing'
         query = query.split()
         query = '+'.join(query)
-        if language == Language.english:
+        if self.language == Language.english:
             self.url = "https://www.google.com/search?q=" + query + "&source=lnms&tbm=isch"
-        elif language == Language.german:
+        elif self.language == Language.german:
             self.url = "https://www.google.de/search?q=" + query + "&source=lnms&tbm=isch"
         else:
             print 'unknown language'
@@ -113,6 +120,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
     # *************************
     def run(self):
         self.quit_request = False
+        self.create_url()
         header = {
             'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/43.0.2357.134 Safari/537.36"
         }
