@@ -80,7 +80,8 @@ class GraphicsView(QtGui.QGraphicsView):
 
 #####################################################################
 class ImageTab(Widget, OperationResult):
-    SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4)
+    SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4, urls_fetching_stopped=5,
+                      image_fetching_stopped=6)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
     NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 5
 
@@ -88,7 +89,6 @@ class ImageTab(Widget, OperationResult):
     def __init__(self, word, language, image_type, mother, parent=None):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
-        self.quit_request = False
         self.fetching_started = False
         self.n_urls = 0
         self.n_fetched = 0
@@ -137,14 +137,15 @@ class ImageTab(Widget, OperationResult):
         header_layout.addWidget(button)
         button.clicked.connect(self.restart)
 
-        self.address_line = QtGui.QLineEdit()
-        header_layout.addWidget(self.address_line)
+        self.word_line = QtGui.QLineEdit()
+        self.update_word_line(self.word)
+        header_layout.addWidget(self.word_line)
 
         button = QtGui.QPushButton(u'✔')
         button.setFixedSize(35, 30)
         button.setStyleSheet("font-size:18px;")
         header_layout.addWidget(button)
-        button.clicked.connect(self.restart)
+        button.clicked.connect(self.go)
 
         self.vertical_layout.addLayout(header_layout)
 
@@ -165,8 +166,21 @@ class ImageTab(Widget, OperationResult):
         self.vertical_layout_scroll.addLayout(self.horizontal_layouts[-1])
 
     ###########################################################
+    def update_word_line(self, word):
+        if type(word) is str:
+            self.word_line.setText(word)
+        else:
+            self.word_line.setText(unicode(word))
+
+    ###########################################################
+    def remove_images(self):
+        for horizontal_layout in self.horizontal_layouts:
+            for i in range(horizontal_layout.count()):
+                horizontal_layout.itemAt(i).widget().close()
+
+    ###########################################################
     def fetch_images(self, image_urls):
-        if self.quit_request or len(image_urls) == 0:
+        if len(image_urls) == 0:
             return
         lock = threading.Lock()
         # threads
@@ -181,8 +195,6 @@ class ImageTab(Widget, OperationResult):
 
     ###########################################################
     def add_fetched_image(self, image_number, image):
-        if self.quit_request:
-            return
         view = GraphicsView(1, image.size[0], image.size[1], self)
         view.image = image
         view.setMinimumHeight(image.size[1] / 2)
@@ -206,6 +218,12 @@ class ImageTab(Widget, OperationResult):
         tab_images = self.mother
         index = tab_images.indexOf(self)
         tab_bar = tab_images.tabBar()
+
+        if signal_type == ImageTab.SignalType.urls_fetching_stopped or \
+                signal_type == ImageTab.SignalType.image_fetching_stopped:
+            self.failed = True
+            tab_bar.setTabText(index, ImageType.names[self.image_type])
+            tab_bar.setTabTextColor(index, OperationResult.failed_color)
 
         if signal_type == ImageTab.SignalType.urls_fetching_started:
             self.started = True
@@ -252,21 +270,41 @@ class ImageTab(Widget, OperationResult):
 
     ###########################################################
     def quit(self):
-        self.quit_request = True
-        self.thread_fetch_image_urls.quit()
+        if self.thread_fetch_image_urls.isRunning():
+            self.thread_fetch_image_urls.quit()
+            self.update_status(ImageTab.SignalType.urls_fetching_stopped)
+        is_running = False
         for thread in self.threads_fetch_image:
-            thread.quit()
+            if thread.isRunning():
+                thread.quit()
+                is_running = True
+        if is_running:
+            self.update_status(ImageTab.SignalType.image_fetching_stopped)
 
     ###########################################################
     def terminate(self):
-        self.quit_request = True
-        self.thread_fetch_image_urls.terminate()
+        if self.thread_fetch_image_urls.isRunning():
+            self.thread_fetch_image_urls.terminate()
+            self.update_status(ImageTab.SignalType.urls_fetching_stopped)
+        is_running = False
         for thread in self.threads_fetch_image:
-            thread.terminate()
+            if thread.isRunning():
+                thread.terminate()
+                is_running = True
+        if is_running:
+            self.update_status(ImageTab.SignalType.image_fetching_stopped)
+
+    ###########################################################
+    def go(self):
+        if self.fetching_started:
+            self.stop()
+            self.remove_images()
+        self.word = unicode(self.word_line.text().toUtf8(), encoding="UTF-8")
+        self.thread_fetch_image_urls.word = self.word
+        self.start()
 
     ###########################################################
     def start(self):
-        self.quit_request = False
         if not self.fetching_started:
             self.fetching_started = True
             self.thread_fetch_image_urls.start()
@@ -274,6 +312,8 @@ class ImageTab(Widget, OperationResult):
     ###########################################################
     def restart(self):
         self.stop()
+        self.remove_images()
+        self.update_word_line(self.word)
         self.start()
 
     ###########################################################
