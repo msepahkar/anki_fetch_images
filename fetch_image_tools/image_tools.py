@@ -90,15 +90,17 @@ class ImageTab(Widget, OperationResult):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
         self.fetching_started = False
+        self.words=[]
+        self.words.append(word)
+        self.current_word_index = 0
         self.n_urls = 0
         self.n_fetched = 0
         self.n_ignored = 0
-        self.word = word
         self.language = language
         self.image_type = image_type
         self.add_layout()
         self.threads_fetch_image = []
-        self.thread_fetch_image_urls = ThreadFetchImageUrls(self.word, self.language, self.image_type)
+        self.thread_fetch_image_urls = ThreadFetchImageUrls(self.words[0], self.language, self.image_type)
         self.connect(self.thread_fetch_image_urls, ThreadFetchImageUrls.signal_urls_fetched, self.fetch_images)
         self.connect(self.thread_fetch_image_urls, ThreadFetchImageUrls.signal_urls_fetched,
                      lambda urls: self.update_status(ImageTab.SignalType.urls_fetched, urls))
@@ -117,13 +119,13 @@ class ImageTab(Widget, OperationResult):
         button.setFixedSize(35, 30)
         button.setStyleSheet("font-size:18px;")
         header_layout.addWidget(button)
-        # button.clicked.connect(self.backward)
+        button.clicked.connect(self.previous_word)
 
         button = QtGui.QPushButton(u"▶")
         button.setFixedSize(35, 30)
         button.setStyleSheet("font-size:18px;")
         header_layout.addWidget(button)
-        # button.clicked.connect(self.forward)
+        button.clicked.connect(self.next_word)
 
         button = QtGui.QPushButton(u'✘')
         button.setFixedSize(35, 30)
@@ -138,7 +140,7 @@ class ImageTab(Widget, OperationResult):
         button.clicked.connect(self.restart)
 
         self.word_line = QtGui.QLineEdit()
-        self.update_word_line(self.word)
+        self.update_word_line(self.words[0])
         header_layout.addWidget(self.word_line)
 
         button = QtGui.QPushButton(u'✔')
@@ -167,10 +169,23 @@ class ImageTab(Widget, OperationResult):
 
     ###########################################################
     def update_word_line(self, word):
-        if type(word) is str:
-            self.word_line.setText(word)
-        else:
-            self.word_line.setText(word)
+        self.word_line.setText(word)
+
+    ###########################################################
+    def update_url_thread_word(self, word):
+        self.thread_fetch_image_urls.word = word
+
+    ###########################################################
+    def next_word(self):
+        if self.current_word_index + 1 < len(self.words):
+            self.current_word_index += 1
+            self.restart()
+
+    ###########################################################
+    def previous_word(self):
+        if self.current_word_index > 0:
+            self.current_word_index -= 1
+            self.restart()
 
     ###########################################################
     def remove_images(self):
@@ -299,8 +314,13 @@ class ImageTab(Widget, OperationResult):
         if self.fetching_started:
             self.stop()
             self.remove_images()
-        self.word = unicode(self.word_line.text().toUtf8(), encoding="UTF-8")
-        self.thread_fetch_image_urls.word = self.word
+        word = unicode(self.word_line.text().toUtf8(), encoding="UTF-8")
+        if word != self.words[self.current_word_index]:
+            for i in range(len(self.words) - 1, self.current_word_index, -1):
+                del self.words[i]
+            self.words.append(word)
+            self.current_word_index += 1
+        self.update_url_thread_word(self.words[self.current_word_index])
         self.start()
 
     ###########################################################
@@ -313,7 +333,8 @@ class ImageTab(Widget, OperationResult):
     def restart(self):
         self.stop()
         self.remove_images()
-        self.update_word_line(self.word)
+        self.update_word_line(self.words[self.current_word_index])
+        self.update_url_thread_word(self.words[self.current_word_index])
         self.start()
 
     ###########################################################
