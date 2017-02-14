@@ -170,7 +170,7 @@ class ImageTab(Widget, OperationResult):
         if type(word) is str:
             self.word_line.setText(word)
         else:
-            self.word_line.setText(unicode(word))
+            self.word_line.setText(word)
 
     ###########################################################
     def remove_images(self):

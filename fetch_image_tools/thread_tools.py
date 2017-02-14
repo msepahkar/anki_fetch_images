@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 import re
-import urllib2, urllib
+import urllib
 from StringIO import StringIO
 from PyQt4 import QtCore
 from PIL import Image
-from general_tools import Language, ImageType
+from general_tools import Language, ImageType, iriToUri
 
-import urllib2, sys
+import urllib2
 
 
 #####################################################################
@@ -102,6 +102,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
 
     # *************************
     def create_url(self):
+        self.quit_request = False
         query = self.word
         if self.image_type == ImageType.clipart:
             query += ' clipart'
@@ -115,7 +116,10 @@ class ThreadFetchImageUrls(QtCore.QThread):
             self.url = "https://www.google.de/search?q=" + query + "&source=lnms&tbm=isch"
         else:
             print 'unknown language'
-        self.quit_request = False
+            return
+
+        self.url = iriToUri(self.url)
+
 
     # *************************
     def run(self):
