@@ -3,7 +3,7 @@
 from PyQt4 import QtGui, QtCore
 import threading
 from PIL.ImageQt import ImageQt
-from general_tools import enum, OperationResult, ImageType
+from general_tools import enum, Result, ImageType
 from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
 from widget_tools import Widget
 
@@ -79,7 +79,7 @@ class GraphicsView(QtGui.QGraphicsView):
 
 
 # ===========================================================================
-class ImageTab(Widget, OperationResult):
+class ImageTab(Widget, Result):
     SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4, urls_fetching_stopped=5,
                       image_fetching_stopped=6)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
@@ -88,8 +88,9 @@ class ImageTab(Widget, OperationResult):
     # ===========================================================================
     def __init__(self, word, language, image_type, mother, parent=None):
         Widget.__init__(self, mother, parent)
-        OperationResult.__init__(self)
+        Result.__init__(self)
         self.fetching_started = False
+        self.dirty = False
         self.words=[]
         self.words.append(word)
         self.current_word_index = 0
@@ -107,7 +108,7 @@ class ImageTab(Widget, OperationResult):
         self.connect(self.thread_fetch_image_urls, ThreadFetchImageUrls.signal_urls_fetching_started,
                      lambda : self.update_status(ImageTab.SignalType.urls_fetching_started))
 
-    ###########################################################
+    # ===========================================================================
     def add_layout(self):
         # base vertical layout
         self.vertical_layout = QtGui.QVBoxLayout(self)
@@ -167,33 +168,33 @@ class ImageTab(Widget, OperationResult):
         self.horizontal_layouts.append(QtGui.QHBoxLayout())
         self.vertical_layout_scroll.addLayout(self.horizontal_layouts[-1])
 
-    ###########################################################
+    # ===========================================================================
     def update_word_line(self, word):
         self.word_line.setText(word)
 
-    ###########################################################
+    # ===========================================================================
     def update_url_thread_word(self, word):
         self.thread_fetch_image_urls.word = word
 
-    ###########################################################
+    # ===========================================================================
     def next_word(self):
         if self.current_word_index + 1 < len(self.words):
             self.current_word_index += 1
             self.restart()
 
-    ###########################################################
+    # ===========================================================================
     def previous_word(self):
         if self.current_word_index > 0:
             self.current_word_index -= 1
             self.restart()
 
-    ###########################################################
+    # ===========================================================================
     def remove_images(self):
         for horizontal_layout in self.horizontal_layouts:
             for i in range(horizontal_layout.count()):
                 horizontal_layout.itemAt(i).widget().close()
 
-    ###########################################################
+    # ===========================================================================
     def fetch_images(self, image_urls):
         if len(image_urls) == 0:
             return
@@ -208,7 +209,7 @@ class ImageTab(Widget, OperationResult):
                          lambda image_number: self.update_status(ImageTab.SignalType.image_ignored, image_number))
             self.threads_fetch_image[-1].start()
 
-    ###########################################################
+    # ===========================================================================
     def add_fetched_image(self, image_number, image):
         view = GraphicsView(1, image.size[0], image.size[1], self)
         view.image = image
@@ -238,7 +239,7 @@ class ImageTab(Widget, OperationResult):
                 signal_type == ImageTab.SignalType.image_fetching_stopped:
             self.failed = True
             tab_bar.setTabText(index, ImageType.names[self.image_type])
-            tab_bar.setTabTextColor(index, OperationResult.failed_color)
+            tab_bar.setTabTextColor(index, Result.failed_color)
 
         if signal_type == ImageTab.SignalType.urls_fetching_started:
             self.started = True
@@ -247,7 +248,7 @@ class ImageTab(Widget, OperationResult):
             self.n_ignored = 0
             self.progress = 0
             tab_bar.setTabText(index, ImageType.names[self.image_type])
-            tab_bar.setTabTextColor(index, OperationResult.started_color)
+            tab_bar.setTabTextColor(index, Result.started_color)
 
         if signal_type == ImageTab.SignalType.urls_fetched:
             urls = param
@@ -255,35 +256,35 @@ class ImageTab(Widget, OperationResult):
             if self.n_urls == 0:
                 self.failed = True
                 tab_bar.setTabText(index, ImageType.names[self.image_type])
-                tab_bar.setTabTextColor(index, OperationResult.failed_color)
+                tab_bar.setTabTextColor(index, Result.failed_color)
             else:
                 self.in_progress = True
                 tab_bar.setTabText(index, ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
-                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+                tab_bar.setTabTextColor(index, Result.in_progress_color)
 
         if signal_type == ImageTab.SignalType.image_fetched:
             self.n_fetched += 1
             self.progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
             if self.progress < 100:
                 tab_bar.setTabText(index, ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
-                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+                tab_bar.setTabTextColor(index, Result.in_progress_color)
             else:
                 tab_bar.setTabText(index, ImageType.names[self.image_type])
-                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+                tab_bar.setTabTextColor(index, Result.succeeded_color)
 
         if signal_type == ImageTab.SignalType.image_ignored:
             self.n_ignored += 1
             self.progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
             if self.progress < 100:
                 tab_bar.setTabText(index, ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
-                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+                tab_bar.setTabTextColor(index, Result.in_progress_color)
             else:
                 tab_bar.setTabText(index, ImageType.names[self.image_type])
-                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+                tab_bar.setTabTextColor(index, Result.succeeded_color)
 
         tab_images.update_progress()
 
-    ###########################################################
+    # ===========================================================================
     def quit(self):
         if self.thread_fetch_image_urls.isRunning():
             self.thread_fetch_image_urls.quit()
@@ -296,7 +297,7 @@ class ImageTab(Widget, OperationResult):
         if is_running:
             self.update_status(ImageTab.SignalType.image_fetching_stopped)
 
-    ###########################################################
+    # ===========================================================================
     def terminate(self):
         if self.thread_fetch_image_urls.isRunning():
             self.thread_fetch_image_urls.terminate()
@@ -308,8 +309,9 @@ class ImageTab(Widget, OperationResult):
                 is_running = True
         if is_running:
             self.update_status(ImageTab.SignalType.image_fetching_stopped)
+        self.threads_fetch_image = []
 
-    ###########################################################
+    # ===========================================================================
     def go(self):
         if self.fetching_started:
             self.stop()
@@ -323,13 +325,16 @@ class ImageTab(Widget, OperationResult):
         self.update_url_thread_word(self.words[self.current_word_index])
         self.start()
 
-    ###########################################################
+    # ===========================================================================
     def start(self):
         if not self.fetching_started:
+            if self.dirty:
+                self.remove_images()
+                self.dirty = False
             self.fetching_started = True
             self.thread_fetch_image_urls.start()
 
-    ###########################################################
+    # ===========================================================================
     def restart(self):
         self.stop()
         self.remove_images()
@@ -337,11 +342,12 @@ class ImageTab(Widget, OperationResult):
         self.update_url_thread_word(self.words[self.current_word_index])
         self.start()
 
-    ###########################################################
+    # ===========================================================================
     def stop(self):
         if self.fetching_started:
             self.quit()
             self.terminate()
             self.fetching_started = False
+            self.dirty = True
 
 

@@ -1,22 +1,135 @@
 # -*- coding: utf-8 -*-
 
 from PyQt4 import QtGui
-from general_tools import OperationResult
+from general_tools import Result
 
 
 # ===========================================================================
-class Widget(QtGui.QWidget):
+class Button(QtGui.QPushButton):
+    # ===========================================================================
+    def __init__(self, text, action, size=None, style=None, enabled=True):
+        super(Button, self).__init__(text)
+        self.clicked.connect(action)
+        self.setEnabled(enabled)
+        if size is not None:
+            self.setFixedSize(size)
+        if style is not None:
+            self.setStyleSheet(style)
+
+
+# ===========================================================================
+class UiDesign:
+    # ===========================================================================
+    def __init__(self):
+        self.main_layout = QtGui.QVBoxLayout()
+        self.setLayout(self.main_layout)
+
+    # ===========================================================================
+    def add_row_widgets(self, *widgets):
+        h_layout = QtGui.QHBoxLayout()
+        for widget in widgets:
+            h_layout.addWidget(widget)
+        self.main_layout.addLayout(h_layout)
+
+    # ===========================================================================
+    def add_widget(self, widget):
+        self.main_layout.addWidget(widget)
+
+    # ===========================================================================
+    def add_line_edit(self, name):
+        # create label and line edit
+        label = QtGui.QLabel(name)
+        line_edit = QtGui.QLineEdit()
+        # add them to a horizontal layout
+        self.add_row_widgets(label, line_edit)
+
+    # ===========================================================================
+    def add_text_edit(self, name, value=''):
+        # create label and line edit
+        label = QtGui.QLabel(name)
+        text_edit = QtGui.QTextEdit(value)
+        # add them to a horizontal layout
+        self.add_row_widgets(label, text_edit)
+
+    # ===========================================================================
+    def add_combo(self, name, items):
+        # create label and combo
+        label = QtGui.QLabel(name)
+        combo = QtGui.QComboBox()
+        for item in items:
+            combo.addItem(item)
+        # add them to the horizontal layout
+        self.add_row_widgets(label, combo)
+
+
+# ===========================================================================
+class YesNoMessageBox(QtGui.QMessageBox):
+    # ===========================================================================
+    def __init__(self, message1, message2):
+        super(YesNoMessageBox, self).__init__()
+        self.setText(message1)
+        self.setInformativeText(message2)
+        self.setStandardButtons(YesNoMessageBox.Yes | YesNoMessageBox.No)
+        self.setDefaultButton(YesNoMessageBox.No)
+
+    # ===========================================================================
+    def show(self):
+        if self.exec_() == YesNoMessageBox.Yes:
+            return True
+        return False
+
+
+# ===========================================================================
+class YesNoCancelMessageBox(QtGui.QMessageBox):
+    # ===========================================================================
+    def __init__(self, message1, message2):
+        super(YesNoCancelMessageBox, self).__init__()
+        self.setText(message1)
+        self.setInformativeText(message2)
+        self.setStandardButtons(YesNoMessageBox.Yes | YesNoMessageBox.No | YesNoCancelMessageBox.Cancel)
+        self.setDefaultButton(YesNoMessageBox.Cancel)
+
+    # ===========================================================================
+    def show(self):
+        result = self.exec_()
+        if result == YesNoCancelMessageBox.Cancel:
+            return False
+        return result
+
+
+# ===========================================================================
+class YesAllNoMessageBox(QtGui.QMessageBox):
+    # ===========================================================================
+    def __init__(self, message1, message2):
+        super(YesAllNoMessageBox, self).__init__()
+        self.setText(message1)
+        self.setInformativeText(message2)
+        self.setStandardButtons(YesNoMessageBox.Yes | YesAllNoMessageBox.YesAll | YesNoMessageBox.No)
+        self.setDefaultButton(YesNoMessageBox.No)
+
+    # ===========================================================================
+    def show(self):
+        result = self.exec_()
+        if result == YesAllNoMessageBox.No:
+            return False
+        return result
+
+
+# ===========================================================================
+class Widget(QtGui.QWidget, UiDesign):
     # ===========================================================================
     def __init__(self, mother, parent=None):
-        super(Widget, self).__init__(parent)
+        QtGui.QWidget.__init__(self)
+        UiDesign.__init__(self)
         self.mother = mother
 
 
 # ===========================================================================
-class Dialog(QtGui.QDialog):
+class Dialog(QtGui.QDialog, UiDesign):
     # ===========================================================================
     def __init__(self, mother, parent=None):
-        super(Dialog, self).__init__(parent)
+        QtGui.QDialog.__init__(self)
+        UiDesign.__init__(self)
         self.mother = mother
 
 
@@ -36,11 +149,11 @@ class TabWidget(QtGui.QTabWidget):
 
 
 # ===========================================================================
-class TabWidgetProgress(TabWidget, OperationResult):
+class TabWidgetProgress(TabWidget, Result):
     # ===========================================================================
     def __init__(self, mother, closable=False, parent=None):
         TabWidget.__init__(self, mother, closable, parent)
-        OperationResult.__init__(self)
+        Result.__init__(self)
 
     # ===========================================================================
     def update_progress(self):
@@ -79,48 +192,48 @@ class TabWidgetProgress(TabWidget, OperationResult):
         if total_started == self.count():
             self.started = True
             tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, OperationResult.started_color)
+            tab_bar.setTabTextColor(index, Result.started_color)
         # all failed
         elif total_failed == self.count():
             self.failed = True
             tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, OperationResult.failed_color)
+            tab_bar.setTabTextColor(index, Result.failed_color)
         # all succeeded
         elif total_succeeded == self.count():
             self.succeeded = True
             tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+            tab_bar.setTabTextColor(index, Result.succeeded_color)
         # all in progress
         elif total_in_progress == self.count():
             self.in_progress = True
             tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
-            tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+            tab_bar.setTabTextColor(index, Result.in_progress_color)
         # at least one in progress
         elif total_in_progress > 0:
             self.in_progress = True
             tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
             # any failed or any started?
             if total_failed > 0 or total_started > 0:
-                tab_bar.setTabTextColor(index, OperationResult.weak_in_progress_color)
+                tab_bar.setTabTextColor(index, Result.weak_in_progress_color)
             # no fail and no started
             else:
-                tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+                tab_bar.setTabTextColor(index, Result.in_progress_color)
         # nothing in progress, but at least one started
         elif total_started > 0:
             self.started = True
             tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, OperationResult.started_color)
+            tab_bar.setTabTextColor(index, Result.started_color)
         # nothing in progress and nothing started, but at least one succeeded
         elif total_succeeded > 0:
             self.succeeded = True
             # any failed?
             if total_failed > 0:
                 tab_bar.setTabText(index, self.label)
-                tab_bar.setTabTextColor(index, OperationResult.weak_succeeded_color)
+                tab_bar.setTabTextColor(index, Result.weak_succeeded_color)
             # no fail
             else:
                 tab_bar.setTabText(index, self.label)
-                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+                tab_bar.setTabTextColor(index, Result.succeeded_color)
 
         mother.update_progress()
 

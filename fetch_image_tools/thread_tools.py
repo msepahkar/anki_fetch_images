@@ -5,7 +5,7 @@ import urllib
 from StringIO import StringIO
 from PyQt4 import QtCore
 from PIL import Image
-from general_tools import Language, ImageType, iriToUri
+from general_tools import Language, ImageType, iri_to_uri
 
 import urllib2
 
@@ -46,19 +46,19 @@ class ThreadFetchImage(QtCore.QThread):
     signal_image_fetched = QtCore.SIGNAL('ThreadFetchImage.image_fetched')
     signal_image_ignored = QtCore.SIGNAL('ThreadFetchImage.image_ignored')
 
-    # *************************
+    # ===========================================================================
     def __init__(self, image_urls, lock):
         super(ThreadFetchImage, self).__init__(None)
         self.image_urls = image_urls
         self.lock = lock
         self.quit_request = False
 
-    # *************************
+    # ===========================================================================
     def url_retrieve_report(self, count, buffer_size, total_size):
         if self.quit_request:
             raise ThreadQuitException
 
-    # *************************
+    # ===========================================================================
     def run(self):
         self.quit_request = False
         while len(self.image_urls) > 0:
@@ -82,7 +82,7 @@ class ThreadFetchImage(QtCore.QThread):
                 print 'quitting thread ...'
                 break
 
-    # *************************
+    # ===========================================================================
     def quit(self):
         self.quit_request = True
 
@@ -92,7 +92,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
     signal_urls_fetched = QtCore.SIGNAL('ThreadFetchImageUrls.image_urls_fetched')
     signal_urls_fetching_started = QtCore.SIGNAL('ThreadFetchImageUrls.image_urls_fetching_started')
 
-    # *************************
+    # ===========================================================================
     def __init__(self, word, language, image_type):
         super(ThreadFetchImageUrls, self).__init__(None)
         self.word = word
@@ -100,7 +100,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
         self.image_type = image_type
         self.url = None
 
-    # *************************
+    # ===========================================================================
     def create_url(self):
         self.quit_request = False
         query = self.word
@@ -118,10 +118,10 @@ class ThreadFetchImageUrls(QtCore.QThread):
             print 'unknown language'
             return
 
-        self.url = iriToUri(self.url)
+        self.url = iri_to_uri(self.url)
 
 
-    # *************************
+    # ===========================================================================
     def run(self):
         self.quit_request = False
         self.create_url()
@@ -152,7 +152,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
             if not self.quit_request:
                 self.emit(ThreadFetchImageUrls.signal_urls_fetched, image_urls)
 
-    # *************************
+    # ===========================================================================
     def quit(self):
         self.quit_request = True
 
@@ -162,20 +162,20 @@ class ThreadFetchAudio(QtCore.QThread):
     signal_audio_fetched = QtCore.SIGNAL("ThreadFetchAudio.audio_fetched")
     signal_audio_fetching_progress = QtCore.SIGNAL("ThreadFetchAudio.audio_fetching_progress")
 
-    # *************************
+    # ===========================================================================
     def __init__(self, url, f_name):
         super(ThreadFetchAudio, self).__init__(None)
-        self.url = iriToUri(url)
+        self.url = iri_to_uri(url)
         self.f_name = f_name
         self.quit_request = False
 
-    # *************************
+    # ===========================================================================
     def report(self, bytes_so_far, chunk_size, total_size):
         if self.quit_request:
             raise ThreadQuitException
         self.emit(self.signal_audio_fetching_progress, bytes_so_far, total_size)
 
-    # *************************
+    # ===========================================================================
     def run(self):
         self.quit_request = False
         header = {
@@ -193,7 +193,7 @@ class ThreadFetchAudio(QtCore.QThread):
 
         self.emit(ThreadFetchAudio.signal_audio_fetched, True)
 
-    # *************************
+    # ===========================================================================
     def quit(self):
         self.quit_request = True
 

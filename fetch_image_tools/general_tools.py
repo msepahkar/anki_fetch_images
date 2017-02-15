@@ -1,6 +1,7 @@
 import re, urlparse
 from PyQt4 import QtCore
 
+
 # ===========================================================================
 def enum(**enums):
     items = [value for key, value in enums.iteritems()]
@@ -12,31 +13,34 @@ def enum(**enums):
 # ===========================================================================
 Language = enum(english=1, german=2)
 
+
 # ===========================================================================
 ImageType = enum(normal=1, clipart=2, line_drawing=3)
 
 
-
 # ===========================================================================
-def urlEncodeNonAscii(b):
+def url_encode_non_ascii(b):
     return re.sub('[\x80-\xFF]', lambda c: '%%%02x' % ord(c.group(0)), b)
 
+
 # ===========================================================================
-def iriToUri(iri):
+def iri_to_uri(iri):
     parts= urlparse.urlparse(iri)
     return urlparse.urlunparse(
-        part.encode('idna') if parti==1 else urlEncodeNonAscii(part.encode('utf-8'))
+        part.encode('idna') if parti==1 else url_encode_non_ascii(part.encode('utf-8'))
         for parti, part in enumerate(parts)
     )
 
+
 # ===========================================================================
-class OperationResult:
+class Result:
     started_color = QtCore.Qt.yellow
     weak_in_progress_color = QtCore.Qt.yellow
     in_progress_color = QtCore.Qt.darkYellow
     weak_succeeded_color = QtCore.Qt.green
     succeeded_color = QtCore.Qt.darkGreen
     failed_color = QtCore.Qt.darkRed
+
     # ===========================================================================
     def __init__(self):
         self._started = False

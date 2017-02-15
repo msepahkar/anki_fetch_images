@@ -6,14 +6,14 @@ import os
 import math
 from PyQt4 import QtGui, QtCore
 from PyQt4 import QtWebKit
-from general_tools import enum, OperationResult, Language
+from general_tools import enum, Result, Language
 from thread_tools import ThreadFetchAudio
-from widget_tools import Widget
+from widget_tools import *
 
 
-####################################################################
+# ===========================================================================#########
 class ProgressCircle:
-    ####################################################################
+    # ===========================================================================#########
     def __init__(self, option, index):
         radius = option.rect.height() / 2
         center_x = option.rect.width() - radius
@@ -33,13 +33,13 @@ class ProgressCircle:
         self.start_angle = 0
         self.span_angle = 0
 
-    ####################################################################
+    # ===========================================================================#########
     def update_progress(self, progress):
         angle = 180 - progress * 180 / 100
         self.start_angle = angle * 16
         self.span_angle = (180 - angle) * 2 * 16
 
-    ####################################################################
+    # ===========================================================================#########
     def is_inside(self, pos):
         if self.rect.x() <= pos.x() <= self.rect.x() + self.rect.width():
             if self.rect.y() <= pos.y() <= self.rect.y() + self.rect.height():
@@ -47,7 +47,7 @@ class ProgressCircle:
         return False
 
 
-####################################################################
+# ===========================================================================#########
 class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
     def __init__(self, list_widget, parent=None):
         QtGui.QItemDelegate.__init__(self, parent)
@@ -280,69 +280,33 @@ class Browser(Widget):
     # ===========================================================================
     def __init__(self, mother):
         super(Browser, self).__init__(mother)
-        self.add_layout()
+
+        size = QtCore.QSize(35, 30)
+        style = "font-size:18px;"
+
+        self.button_previous = Button(u"◀", self.backward, size, style, enabled=False)
+        self.button_next = Button(u"▶", self.forward, size, style, enabled=False)
+        self.button_stop = Button(u'✘', self.stop, size, style, enabled=False)
+        self.button_reload = Button(u"↻", self.reload, size, style)
+        self.address_line = QtGui.QLineEdit()
+        self.button_go = Button(u'✔', self.go, size, style)
+        self.button_audio_list = Button(u'H', self.change_audio_window_status, size, style, enabled=False)
+
+        self.add_row_widgets(self.button_previous, self.button_next, self.button_stop, self.button_reload,
+                             self.address_line, self.button_go, self.button_audio_list)
+
+        self.inline_browser = InlineBrowser(self)
+        self.inline_browser.urlChanged.connect(self.update_address_line)
         self.inline_browser.loadStarted.connect(self.started)
         self.inline_browser.loadProgress.connect(self.progress)
         self.inline_browser.loadFinished.connect(self.finished)
         self.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
 
-    # ===========================================================================
-    def add_layout(self):
-        header_layout = QtGui.QHBoxLayout()
-
-        button = QtGui.QPushButton(u"◀")
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.backward)
-
-        button = QtGui.QPushButton(u"▶")
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.forward)
-
-        button = QtGui.QPushButton(u'✘')
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.stop)
-
-        button = QtGui.QPushButton(u"↻")
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.reload)
-
-        self.address_line = QtGui.QLineEdit()
-        header_layout.addWidget(self.address_line)
-
-        button = QtGui.QPushButton(u'✔')
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.go)
-
-        self.change_audio_window_button = QtGui.QPushButton(u'H')
-        self.change_audio_window_button.setFixedSize(35, 30)
-        self.change_audio_window_button.setStyleSheet("font-size:18px;")
-        self.change_audio_window_button.setEnabled(False)
-        header_layout.addWidget(self.change_audio_window_button)
-        self.change_audio_window_button.clicked.connect(self.change_audio_window_status)
-
-        layout = QtGui.QVBoxLayout()
-        layout.addLayout(header_layout)
-
-        self.inline_browser = InlineBrowser(self)
-        self.inline_browser.urlChanged.connect(self.update_address_line)
-
-        layout.addWidget(self.inline_browser)
+        self.add_widget(self.inline_browser)
 
         self.audio_window = AudioListWidget()
         self.audio_window.hide()
-        layout.addWidget(self.audio_window)
-
-        self.setLayout(layout)
+        self.add_widget(self.audio_window)
 
     # ===========================================================================
     def started(self):
@@ -396,13 +360,13 @@ class Browser(Widget):
         if hasattr(url, 'endsWith'):
             url = unicode(url.toUtf8(), encoding="UTF-8")
         if url.endswith('mp3'):
-            self.change_audio_window_button.setEnabled(True)
+            self.button_audio_list.setEnabled(True)
             self.audio_window.add(url)
         else:
             headers = reply.rawHeaderPairs()
             for header in headers:
                 if header[1].contains('audio'):
-                    self.change_audio_window_button.setEnabled(True)
+                    self.button_audio_list.setEnabled(True)
                     self.audio_window.add(url)
 
     # ===========================================================================
@@ -422,7 +386,7 @@ class Browser(Widget):
 
 
 # ===========================================================================
-class DictionaryTab(Widget, OperationResult):
+class DictionaryTab(Widget, Result):
     dictionaries = dict()
     dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/'),
                                       ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
@@ -439,7 +403,8 @@ class DictionaryTab(Widget, OperationResult):
     # ===========================================================================
     def __init__(self, address_pair, word, mother, parent=None):
         Widget.__init__(self, mother, parent)
-        OperationResult.__init__(self)
+        Result.__init__(self)
+        
         self.browsing_started = False
         self.name = address_pair[0]
         self.web_address = address_pair[1]
@@ -451,8 +416,7 @@ class DictionaryTab(Widget, OperationResult):
         self.connect(self.browser, Browser.signal_started, lambda: self.update_status(InlineBrowser.SignalType.started))
         self.connect(self.browser, Browser.signal_progress, lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
         self.connect(self.browser, Browser.signal_finished, lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
-        self.vertical_layout = QtGui.QVBoxLayout(self)
-        self.vertical_layout.addWidget(self.browser)
+        self.add_widget(self.browser)
 
     # ===========================================================================
     def update_status(self, singal_type, param=None):
@@ -462,14 +426,14 @@ class DictionaryTab(Widget, OperationResult):
         tab_bar = tab_dictionaries.tabBar()
         if singal_type == InlineBrowser.SignalType.started:
             self.progress = 0
-            tab_bar.setTabTextColor(index, OperationResult.started_color)
+            tab_bar.setTabTextColor(index, Result.started_color)
             tab_dictionaries.update_progress()
         if singal_type == InlineBrowser.SignalType.progress:
             progress = param
             self.in_progress = True
             self.progress = progress
             tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
-            tab_bar.setTabTextColor(index, OperationResult.in_progress_color)
+            tab_bar.setTabTextColor(index, Result.in_progress_color)
             tab_dictionaries.update_progress()
         if singal_type == InlineBrowser.SignalType.finished:
             ok = param
@@ -477,10 +441,10 @@ class DictionaryTab(Widget, OperationResult):
             if ok:
                 self.progress = 100
                 self.succeeded = True
-                tab_bar.setTabTextColor(index, OperationResult.succeeded_color)
+                tab_bar.setTabTextColor(index, Result.succeeded_color)
             else:
                 self.failed = True
-                tab_bar.setTabTextColor(index, OperationResult.failed_color)
+                tab_bar.setTabTextColor(index, Result.failed_color)
             tab_dictionaries.update_progress()
 
     # ===========================================================================
@@ -497,3 +461,7 @@ class DictionaryTab(Widget, OperationResult):
             self.browsing_started = True
             self.browser.go(self.url)
 
+    # ===========================================================================
+    def stop(self):
+        self.browsing_started = False
+        self.browser.stop()

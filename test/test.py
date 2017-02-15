@@ -4,7 +4,7 @@ import time
 
 
 class ProgressChord:
-    ####################################################################
+    # ===========================================================================#########
     def __init__(self, center_x, center_y, radius, progress=0):
         self.center_x = center_x
         self.center_y = center_y
@@ -19,7 +19,7 @@ class ProgressChord:
         self.span_angle = 0
         self.update_progress(self.progress)
 
-    ####################################################################
+    # ===========================================================================#########
     def update_progress(self, progress):
         self.progress = progress
         angle = 180 - self.progress * 180 / 100
@@ -27,7 +27,7 @@ class ProgressChord:
         self.span_angle = (180 - angle) * 2 * 16
         print angle, self.span_angle / 16
 
-####################################################################
+# ===========================================================================#########
 class MyThread(QtCore.QThread):
     def __init__(self, item):
         super(MyThread, self).__init__()
@@ -39,7 +39,7 @@ class MyThread(QtCore.QThread):
             self.item.update_progress(progress)
             time.sleep(0.05)
 
-####################################################################
+# ===========================================================================#########
 class AudioListWidgetItemDelegate(QtGui.QItemDelegate):
     def __init__(self, list_widget, parent=None):
         QtGui.QItemDelegate.__init__(self, parent)

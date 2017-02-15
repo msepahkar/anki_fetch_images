@@ -2,14 +2,14 @@ import sys
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-####################################################################
+# ===========================================================================#########
 def main():
     app = QApplication(sys.argv)
     w = MyWindow()
     w.show()
     sys.exit(app.exec_())
 
-####################################################################
+# ===========================================================================#########
 class MyWindow(QWidget):
     def __init__(self, *args):
         QWidget.__init__(self, *args)
@@ -27,7 +27,7 @@ class MyWindow(QWidget):
         layout.addWidget(lv)
         self.setLayout(layout)
 
-####################################################################
+# ===========================================================================#########
 class MyDelegate(QItemDelegate):
     def __init__(self, parent=None, *args):
         QItemDelegate.__init__(self, parent)
@@ -52,7 +52,7 @@ class MyDelegate(QItemDelegate):
 
         painter.restore()
 
-####################################################################
+# ===========================================================================#########
 class MyListModel(QAbstractListModel):
     def __init__(self, datain, parent=None, *args):
         """ datain: a list where each item is a row
@@ -69,6 +69,6 @@ class MyListModel(QAbstractListModel):
         else:
             return QVariant()
 
-####################################################################
+# ===========================================================================#########
 if __name__ == "__main__":
     main()
