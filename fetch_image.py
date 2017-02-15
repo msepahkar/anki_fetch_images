@@ -8,10 +8,10 @@ from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import Dialog, TabWidgetProgress, Widget
 from fetch_image_tools.dictionary_tools import DictionaryTab
 from fetch_image_tools.image_tools import ImageTab
-from fetch_image_note_tools import get_fields, get_model, get_language, get_main_word, get_meida_dir
+from fetch_image_note_tools import *
 
 
-#####################################################################
+# ===========================================================================
 class MainDialog(Dialog):
     # *************************
     def __init__(self, notes, parent=None):
@@ -20,6 +20,9 @@ class MainDialog(Dialog):
         pygame.init()
 
         self.notes = notes
+        self.dirty = dict()
+        for note in self.notes:
+            self.dirty[note] = False
         self.words = dict()
         self.languages = dict()
         self.full_image_file_names = dict()
@@ -36,6 +39,8 @@ class MainDialog(Dialog):
         button_next.clicked.connect(self.next_note)
         button_previous = QtGui.QPushButton('Previous')
         button_previous.clicked.connect(self.previous_note)
+        button_update_all_note = QtGui.QPushButton('update all')
+        button_update_all_note.clicked.connect(self.update_all_note)
         button_update_note = QtGui.QPushButton('update')
         button_update_note.clicked.connect(self.update_note)
         button_new_note = QtGui.QPushButton('new')
@@ -115,7 +120,16 @@ class MainDialog(Dialog):
 
     ###########################################################
     def update_note(self):
-        pass
+        note = self.notes[self.current_note_index]
+        if self.dirty[note]:
+            update_note(note)
+
+    ###########################################################
+    def update_all_notes(self):
+
+        for note in self.notes:
+            if self.dirty[note]:
+                update_note(note)
 
     ###########################################################
     def new_note(self):

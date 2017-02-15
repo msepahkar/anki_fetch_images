@@ -8,9 +8,9 @@ from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
 from widget_tools import Widget
 
 
-#####################################################################
+# ===========================================================================
 class GraphicsView(QtGui.QGraphicsView):
-    #####################################################################
+    # ===========================================================================
     def __init__(self, number, w, h, main_dialog, parent=None):
         super(GraphicsView, self).__init__(parent)
         self.main_dialog = main_dialog
@@ -27,11 +27,11 @@ class GraphicsView(QtGui.QGraphicsView):
         self.resize(w, h)
         self.image = None
 
-    #####################################################################
+    # ===========================================================================
     def resizeEvent(self, event):
         self.fit()
 
-    #####################################################################
+    # ===========================================================================
     def fit(self):
         if self.scene is not None:
             rect = QtCore.QRectF(self.sceneRect())
@@ -45,7 +45,7 @@ class GraphicsView(QtGui.QGraphicsView):
                 self.scale(factor, factor)
                 self.centerOn(rect.center())
 
-    #####################################################################
+    # ===========================================================================
     def display_image(self, image_number, image):
         self.scene.clear()
         # w, h = image.size
@@ -55,7 +55,7 @@ class GraphicsView(QtGui.QGraphicsView):
         # self.fitInView(QtCore.QRectF(0, 0, w, h), QtCore.Qt.KeepAspectRatio)
         self.scene.update()
 
-    #####################################################################
+    # ===========================================================================
     def contextMenuEvent(self, QContextMenuEvent):
         menu = QtGui.QMenu(self)
 
@@ -64,7 +64,7 @@ class GraphicsView(QtGui.QGraphicsView):
 
         menu.exec_(self.mapToGlobal(QContextMenuEvent.pos()))
 
-    #####################################################################
+    # ===========================================================================
     def set_image(self):
         # full_base_name = os.path.join(self.main_dialog.media_dir, self.main_dialog.word)
         # full_f_name = full_base_name + ".png"
@@ -78,14 +78,14 @@ class GraphicsView(QtGui.QGraphicsView):
         # self.image.save(full_f_name)
 
 
-#####################################################################
+# ===========================================================================
 class ImageTab(Widget, OperationResult):
     SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4, urls_fetching_stopped=5,
                       image_fetching_stopped=6)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
     NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 5
 
-    #####################################################################
+    # ===========================================================================
     def __init__(self, word, language, image_type, mother, parent=None):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
@@ -228,7 +228,7 @@ class ImageTab(Widget, OperationResult):
             self.vertical_layout_scroll.addLayout(self.horizontal_layouts[-1])
             horizontal_layout.addWidget(view)
 
-    #####################################################################
+    # ===========================================================================
     def update_status(self, signal_type, param=None):
         tab_images = self.mother
         index = tab_images.indexOf(self)

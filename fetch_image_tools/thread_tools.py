@@ -10,7 +10,7 @@ from general_tools import Language, ImageType, iriToUri
 import urllib2
 
 
-#####################################################################
+# ===========================================================================
 def chunk_read(response, chunk_size=8192, report_hook=None):
 
     total_size = -1
@@ -36,12 +36,12 @@ def chunk_read(response, chunk_size=8192, report_hook=None):
     return buffer_
 
 
-#####################################################################
+# ===========================================================================
 class ThreadQuitException(Exception):
     pass
 
 
-#####################################################################
+# ===========================================================================
 class ThreadFetchImage(QtCore.QThread):
     signal_image_fetched = QtCore.SIGNAL('ThreadFetchImage.image_fetched')
     signal_image_ignored = QtCore.SIGNAL('ThreadFetchImage.image_ignored')
@@ -87,7 +87,7 @@ class ThreadFetchImage(QtCore.QThread):
         self.quit_request = True
 
 
-#####################################################################
+# ===========================================================================
 class ThreadFetchImageUrls(QtCore.QThread):
     signal_urls_fetched = QtCore.SIGNAL('ThreadFetchImageUrls.image_urls_fetched')
     signal_urls_fetching_started = QtCore.SIGNAL('ThreadFetchImageUrls.image_urls_fetching_started')
@@ -157,7 +157,7 @@ class ThreadFetchImageUrls(QtCore.QThread):
         self.quit_request = True
 
 
-#####################################################################
+# ===========================================================================
 class ThreadFetchAudio(QtCore.QThread):
     signal_audio_fetched = QtCore.SIGNAL("ThreadFetchAudio.audio_fetched")
     signal_audio_fetching_progress = QtCore.SIGNAL("ThreadFetchAudio.audio_fetching_progress")

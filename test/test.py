@@ -33,7 +33,7 @@ class MyThread(QtCore.QThread):
         super(MyThread, self).__init__()
         self.item = item
 
-    #####################################################################
+    # ===========================================================================
     def run(self):
         for progress in range(101):
             self.item.update_progress(progress)
@@ -68,24 +68,24 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate):
         painter.restore()
 
 
-#####################################################################
+# ===========================================================================
 class AudioListWidgetItem(QtGui.QListWidgetItem):
-    #####################################################################
+    # ===========================================================================
     def __init__(self, url):
         super(AudioListWidgetItem, self).__init__()
         self.setSizeHint(QtCore.QSize(200,100))
         self.url = url
 
-    #####################################################################
+    # ===========================================================================
     def update_progress(self, progress):
         self.progress = progress
         self.setText(str(self.progress))
 
 
-#####################################################################
+# ===========================================================================
 class AudioListWidget(QtGui.QListWidget):
 
-    #####################################################################
+    # ===========================================================================
     def __init__(self, parent=None):
         super(AudioListWidget, self).__init__(parent)
 
@@ -96,7 +96,7 @@ class AudioListWidget(QtGui.QListWidget):
 
         self.setItemDelegate(de)
 
-    #####################################################################
+    # ===========================================================================
     def add(self, url):
         for i in range(self.count()):
             if self.item(i).url == url:
@@ -105,7 +105,7 @@ class AudioListWidget(QtGui.QListWidget):
         self.addItem(item)
         # item.add_button()
 
-    #####################################################################
+    # ===========================================================================
     def mousePressEvent(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
             width = self.rectForIndex(self.indexFromItem(self.itemAt(event.pos()))).width()
@@ -115,14 +115,14 @@ class AudioListWidget(QtGui.QListWidget):
         return QtGui.QListWidget.mousePressEvent(self, event)
 
 
-#####################################################################
+# ===========================================================================
 class Browser(QtGui.QWidget):
-    #####################################################################
+    # ===========================================================================
     def __init__(self, mother):
         super(Browser, self).__init__(mother)
         self.add_layout()
 
-    #####################################################################
+    # ===========================================================================
     def add_layout(self):
         layout = QtGui.QVBoxLayout()
 

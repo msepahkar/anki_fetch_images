@@ -101,9 +101,9 @@ class AudioListWidgetItemDelegate(QtGui.QItemDelegate, QtGui.QStandardItem):
         painter.restore()
 
 
-#####################################################################
+# ===========================================================================
 class AudioListWidgetItem(QtGui.QListWidgetItem):
-    #####################################################################
+    # ===========================================================================
     def __init__(self, url):
         super(AudioListWidgetItem, self).__init__()
         self.url = url
@@ -118,12 +118,12 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetched, self.audio_fetched)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetching_progress, self.update_progress)
 
-    #####################################################################
+    # ===========================================================================
     @property
     def status(self):
         return self._status
 
-    #####################################################################
+    # ===========================================================================
     def audio_fetched(self, ok):
         if ok:
             self.update_status(AudioListWidget.Status.fetched)
@@ -131,17 +131,17 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         else:
             self.update_status(AudioListWidget.Status.failed)
 
-    #####################################################################
+    # ===========================================================================
     def update_status(self, status):
         self._status = status
         self.setText(AudioListWidget.Status.names[self._status])
 
-    #####################################################################
+    # ===========================================================================
     def update_progress(self, current_bytes, total_bytes):
         self.progress = current_bytes * 100 / total_bytes
         self.setText(str(self.progress))
 
-    #####################################################################
+    # ===========================================================================
     def load_audio(self):
         if self.thread.isRunning():
             return
@@ -149,19 +149,19 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
         self.update_status(AudioListWidget.Status.fetching)
         self.thread.start()
 
-    #####################################################################
+    # ===========================================================================
     def stop_loading_audio(self):
         if self._status == AudioListWidget.Status.fetching:
             self.thread.quit()
             self.thread.terminate()
             self.update_status(AudioListWidget.Status.failed)
 
-    #####################################################################
+    # ===========================================================================
     def play_audio(self):
         pygame.mixer.music.load(self.audio_file)
         pygame.mixer.music.play()
 
-    #####################################################################
+    # ===========================================================================
     def handle_click(self, pos):
         if self.progress_circle and self.progress_circle.is_inside(pos):
             if self.status == AudioListWidget.Status.fetching:
@@ -175,11 +175,11 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
                 self.load_audio()
 
 
-#####################################################################
+# ===========================================================================
 class AudioListWidget(QtGui.QListWidget):
     Status = enum(empty=1, discovered=2, fetching=3, fetched=4, failed=5)
 
-    #####################################################################
+    # ===========================================================================
     def __init__(self, parent=None):
         super(AudioListWidget, self).__init__(parent)
 
@@ -191,7 +191,7 @@ class AudioListWidget(QtGui.QListWidget):
 
         self.setItemDelegate(de)
 
-    #####################################################################
+    # ===========================================================================
     def add(self, url):
         for i in range(self.count()):
             if self.item(i).url == url:
@@ -200,11 +200,11 @@ class AudioListWidget(QtGui.QListWidget):
         self.addItem(item)
         # item.add_button()
 
-    # #####################################################################
+    # # ===========================================================================
     # def load_audio(self, item):
     #     item.load_audio()
     #
-    #####################################################################
+    # ===========================================================================
     def mousePressEvent(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
             item = self.itemAt(event.pos())
@@ -213,17 +213,17 @@ class AudioListWidget(QtGui.QListWidget):
         return QtGui.QListWidget.mousePressEvent(self, event)
 
 
-#####################################################################
+# ===========================================================================
 class InlineBrowser(QtWebKit.QWebView):
     InfoType = enum(dictionary=1, image=2, dictionary_image=3)
     SignalType = enum(started=1, progress=2, finished=3)
 
-    #####################################################################
+    # ===========================================================================
     def __init__(self, mother, parent=None):
         super(InlineBrowser, self).__init__(parent)
         self.mother = mother
 
-    #####################################################################
+    # ===========================================================================
     def contextMenuEvent(self, event):
         word = str(self.selectedText())
 
@@ -259,7 +259,7 @@ class InlineBrowser(QtWebKit.QWebView):
 
         menu.exec_(self.mapToGlobal(event.pos()))
 
-    #####################################################################
+    # ===========================================================================
     def fetch_this_word(self, word, language, info_type):
         if word:
             mother = self.mother
@@ -271,13 +271,13 @@ class InlineBrowser(QtWebKit.QWebView):
                 mother.add_image_tabs(word, language)
 
 
-#####################################################################
+# ===========================================================================
 class Browser(Widget):
     signal_started = QtCore.SIGNAL("Browser.started")
     signal_progress = QtCore.SIGNAL("Browser.progress")
     signal_finished = QtCore.SIGNAL("Browser.finished")
 
-    #####################################################################
+    # ===========================================================================
     def __init__(self, mother):
         super(Browser, self).__init__(mother)
         self.add_layout()
@@ -286,7 +286,7 @@ class Browser(Widget):
         self.inline_browser.loadFinished.connect(self.finished)
         self.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
 
-    #####################################################################
+    # ===========================================================================
     def add_layout(self):
         header_layout = QtGui.QHBoxLayout()
 
@@ -344,53 +344,53 @@ class Browser(Widget):
 
         self.setLayout(layout)
 
-    #####################################################################
+    # ===========================================================================
     def started(self):
         self.emit(Browser.signal_started)
 
-    #####################################################################
+    # ===========================================================================
     def progress(self, progress):
         self.emit(Browser.signal_progress, progress)
 
-    #####################################################################
+    # ===========================================================================
     def finished(self, ok):
         self.emit(Browser.signal_finished, ok)
 
-    #####################################################################
+    # ===========================================================================
     def stop(self):
         self.inline_browser.stop()
 
-    #####################################################################
+    # ===========================================================================
     def forward(self):
         self.inline_browser.forward()
 
-    #####################################################################
+    # ===========================================================================
     def backward(self):
         self.inline_browser.back()
 
-    #####################################################################
+    # ===========================================================================
     def reload(self):
         self.inline_browser.reload()
 
-    #####################################################################
+    # ===========================================================================
     def update_address_line(self, url):
         self.address_line.setText(url.toString())
 
-    #####################################################################
+    # ===========================================================================
     def go(self, url = None):
         if url:
             self.address_line.setText(url)
         url = QtCore.QUrl(self.address_line.text())
         self.inline_browser.load(url)
 
-    #####################################################################
+    # ===========================================================================
     def change_audio_window_status(self):
         if self.audio_window.isHidden():
             self.audio_window.show()
         else:
             self.audio_window.hide()
 
-    #####################################################################
+    # ===========================================================================
     def url_discovered(self, reply):
         url = reply.url().toString()
         if hasattr(url, 'endsWith'):
@@ -405,7 +405,7 @@ class Browser(Widget):
                     self.change_audio_window_button.setEnabled(True)
                     self.audio_window.add(url)
 
-    #####################################################################
+    # ===========================================================================
     def quit(self):
         self.inline_browser.stop()
         for i in range(self.audio_window.count()):
@@ -414,14 +414,14 @@ class Browser(Widget):
             if os.path.exists(item.audio_file):
                 os.remove(item.audio_file)
 
-    #####################################################################
+    # ===========================================================================
     def terminate(self):
         for i in range(self.audio_window.count()):
             item = self.audio_window.item(i)
             item.thread.terminate()
 
 
-#####################################################################
+# ===========================================================================
 class DictionaryTab(Widget, OperationResult):
     dictionaries = dict()
     dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/'),
@@ -436,7 +436,7 @@ class DictionaryTab(Widget, OperationResult):
                                      ('duden', 'http://www.duden.de/suchen/dudenonline/'),
                                      ('forvo', 'https://forvo.com/search/')]
 
-    #####################################################################
+    # ===========================================================================
     def __init__(self, address_pair, word, mother, parent=None):
         Widget.__init__(self, mother, parent)
         OperationResult.__init__(self)
@@ -454,7 +454,7 @@ class DictionaryTab(Widget, OperationResult):
         self.vertical_layout = QtGui.QVBoxLayout(self)
         self.vertical_layout.addWidget(self.browser)
 
-    #####################################################################
+    # ===========================================================================
     def update_status(self, singal_type, param=None):
         name = self.name
         tab_dictionaries = self.mother
@@ -483,15 +483,15 @@ class DictionaryTab(Widget, OperationResult):
                 tab_bar.setTabTextColor(index, OperationResult.failed_color)
             tab_dictionaries.update_progress()
 
-    #####################################################################
+    # ===========================================================================
     def quit(self):
         self.browser.quit()
 
-    #####################################################################
+    # ===========================================================================
     def terminate(self):
         self.browser.terminate()
 
-    #####################################################################
+    # ===========================================================================
     def start(self):
         if not self.browsing_started:
             self.browsing_started = True

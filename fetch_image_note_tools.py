@@ -32,4 +32,8 @@ def get_language(note):
 def get_meida_dir(note):
     return ''
 
+###########################################################
+def update_note(note):
+    return
+
 
