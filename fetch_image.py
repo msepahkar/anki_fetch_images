@@ -36,11 +36,16 @@ class MainDialog(Dialog):
         button_next.clicked.connect(self.next_note)
         button_previous = QtGui.QPushButton('Previous')
         button_previous.clicked.connect(self.previous_note)
-        button_update
+        button_update_note = QtGui.QPushButton('update')
+        button_update_note.clicked.connect(self.update_note)
+        button_new_note = QtGui.QPushButton('new')
+        button_new_note.clicked.connect(self.new_note)
         layout = QtGui.QHBoxLayout()
         layout.addWidget(button_previous)
         layout.addWidget(button_next)
         layout.addStretch()
+        layout.addWidget(button_update_note)
+        layout.addWidget(button_new_note)
         self.main_layout = QtGui.QVBoxLayout()
         self.setLayout(self.main_layout)
         self.main_layout.addLayout(layout)
@@ -107,6 +112,14 @@ class MainDialog(Dialog):
             self.main_tab_widgets[self.notes[self.current_note_index]].hide()
             self.current_note_index -= 1
             self.show_main_tab(self.notes[self.current_note_index])
+
+    ###########################################################
+    def update_note(self):
+        pass
+
+    ###########################################################
+    def new_note(self):
+        pass
 
     ###########################################################
     def add_word_fields(self, note):
