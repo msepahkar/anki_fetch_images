@@ -323,6 +323,13 @@ class Browser(Widget):
         header_layout.addWidget(button)
         button.clicked.connect(self.go)
 
+        self.change_audio_window_button = QtGui.QPushButton(u'H')
+        self.change_audio_window_button.setFixedSize(35, 30)
+        self.change_audio_window_button.setStyleSheet("font-size:18px;")
+        self.change_audio_window_button.setEnabled(False)
+        header_layout.addWidget(self.change_audio_window_button)
+        self.change_audio_window_button.clicked.connect(self.change_audio_window_status)
+
         layout = QtGui.QVBoxLayout()
         layout.addLayout(header_layout)
 
@@ -331,8 +338,9 @@ class Browser(Widget):
 
         layout.addWidget(self.inline_browser)
 
-        self.audio_list = AudioListWidget()
-        layout.addWidget(self.audio_list)
+        self.audio_window = AudioListWidget()
+        self.audio_window.hide()
+        layout.addWidget(self.audio_window)
 
         self.setLayout(layout)
 
@@ -376,32 +384,40 @@ class Browser(Widget):
         self.inline_browser.load(url)
 
     #####################################################################
-    def url_discovered(self, reply):
+    def change_audio_window_status(self):
+        if self.audio_window.isHidden():
+            self.audio_window.show()
+        else:
+            self.audio_window.hide()
 
+    #####################################################################
+    def url_discovered(self, reply):
         url = reply.url().toString()
         if hasattr(url, 'endsWith'):
             url = unicode(url.toUtf8(), encoding="UTF-8")
         if url.endswith('mp3'):
-            self.audio_list.add(url)
+            self.change_audio_window_button.setEnabled(True)
+            self.audio_window.add(url)
         else:
             headers = reply.rawHeaderPairs()
             for header in headers:
                 if header[1].contains('audio'):
-                    self.audio_list.add(url)
+                    self.change_audio_window_button.setEnabled(True)
+                    self.audio_window.add(url)
 
     #####################################################################
     def quit(self):
         self.inline_browser.stop()
-        for i in range(self.audio_list.count()):
-            item = self.audio_list.item(i)
+        for i in range(self.audio_window.count()):
+            item = self.audio_window.item(i)
             item.thread.quit()
             if os.path.exists(item.audio_file):
                 os.remove(item.audio_file)
 
     #####################################################################
     def terminate(self):
-        for i in range(self.audio_list.count()):
-            item = self.audio_list.item(i)
+        for i in range(self.audio_window.count()):
+            item = self.audio_window.item(i)
             item.thread.terminate()
 
 

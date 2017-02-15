@@ -36,6 +36,7 @@ class MainDialog(Dialog):
         button_next.clicked.connect(self.next_note)
         button_previous = QtGui.QPushButton('Previous')
         button_previous.clicked.connect(self.previous_note)
+        button_update
         layout = QtGui.QHBoxLayout()
         layout.addWidget(button_previous)
         layout.addWidget(button_next)

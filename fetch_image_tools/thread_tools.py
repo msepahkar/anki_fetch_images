@@ -165,7 +165,7 @@ class ThreadFetchAudio(QtCore.QThread):
     # *************************
     def __init__(self, url, f_name):
         super(ThreadFetchAudio, self).__init__(None)
-        self.url = url
+        self.url = iriToUri(url)
         self.f_name = f_name
         self.quit_request = False
 
