@@ -81,7 +81,7 @@ class MainDialog(Dialog):
         self.main_tabs[note].addTab(self.main_tabs[note].tab_images, 'images')
 
         # main word images
-        # self.add_image_tabs(note)
+        self.add_image_tabs(note)
 
         self.main_layout.addWidget(self.main_tabs[note])
         self.main_tabs[note].hide()

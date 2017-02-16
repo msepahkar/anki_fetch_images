@@ -281,12 +281,16 @@ class Browser(Widget):
     def __init__(self, mother):
         super(Browser, self).__init__(mother)
 
+        self.total_backs = 0
+        self.current_back = 0
+        self.forwarded = self.backwarded = self.went = False
+
         size = QtCore.QSize(35, 30)
         style = "font-size:18px;"
 
         self.button_previous = Button(u"◀", self.backward, size, style, enabled=False)
         self.button_next = Button(u"▶", self.forward, size, style, enabled=False)
-        self.button_stop = Button(u'✘', self.stop, size, style, enabled=False)
+        self.button_stop = Button(u'✘', self.stop, size, style, enabled=True)
         self.button_reload = Button(u"↻", self.reload, size, style)
         self.address_line = QtGui.QLineEdit()
         self.button_go = Button(u'✔', self.go, size, style)
@@ -300,6 +304,7 @@ class Browser(Widget):
         self.inline_browser.loadStarted.connect(self.started)
         self.inline_browser.loadProgress.connect(self.progress)
         self.inline_browser.loadFinished.connect(self.finished)
+        self.inline_browser.urlChanged.connect(self.url_changed)
         self.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
 
         self.add_widget(self.inline_browser)
@@ -326,10 +331,20 @@ class Browser(Widget):
 
     # ===========================================================================
     def forward(self):
+        self.button_previous.setEnabled(True)
+        self.current_back += 1
+        if self.current_back == self.total_backs:
+            self.button_next.setEnabled(False)
+        self.forwarded = True
         self.inline_browser.forward()
 
     # ===========================================================================
     def backward(self):
+        self.button_next.setEnabled(True)
+        self.current_back -= 1
+        if self.current_back == 0:
+            self.button_previous.setEnabled(False)
+        self.backwarded = True
         self.inline_browser.back()
 
     # ===========================================================================
@@ -344,6 +359,11 @@ class Browser(Widget):
     def go(self, url = None):
         if url:
             self.address_line.setText(url)
+        self.went = True
+        if self.total_backs > 0:
+            self.current_back += 1
+            self.total_backs = self.current_back
+            self.button_previous.setEnabled(True)
         url = QtCore.QUrl(self.address_line.text())
         self.inline_browser.load(url)
 
@@ -353,6 +373,13 @@ class Browser(Widget):
             self.audio_window.show()
         else:
             self.audio_window.hide()
+
+    # ===========================================================================
+    def url_changed(self):
+        if not self.forwarded and not self.backwarded and not self.went:
+            self.button_previous.setEnabled(True)
+            self.current_back += 1
+            self.total_backs = self.current_back
 
     # ===========================================================================
     def url_discovered(self, reply):

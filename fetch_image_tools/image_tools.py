@@ -5,7 +5,7 @@ import threading
 from PIL.ImageQt import ImageQt
 from general_tools import enum, Result, ImageType
 from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
-from widget_tools import Widget
+from widget_tools import *
 
 
 # ===========================================================================
@@ -90,7 +90,6 @@ class ImageTab(Widget, Result):
         Widget.__init__(self, mother, parent)
         Result.__init__(self)
         self.fetching_started = False
-        self.dirty = False
         self.words=[]
         self.words.append(word)
         self.current_word_index = 0
@@ -99,7 +98,27 @@ class ImageTab(Widget, Result):
         self.n_ignored = 0
         self.language = language
         self.image_type = image_type
-        self.add_layout()
+
+        size = QtCore.QSize(35, 30)
+        style = "font-size:18px;"
+
+        self.button_previous = Button(u"◀", self.previous_word, size, style, enabled=False)
+        self.button_next = Button(u"▶", self.next_word, size, style, enabled=False)
+        self.button_stop = Button(u'✘', self.stop, size, style, enabled=False)
+        self.button_reload = Button(u"↻", self.restart, size, style)
+        self.word_line = QtGui.QLineEdit(self.words[0])
+        self.button_go = Button(u'✔', self.go, size, style)
+
+        self.add_row_widgets(self.button_previous, self.button_next, self.button_stop, self.button_reload,
+                             self.word_line, self.button_go)
+
+        self.vertical_layout_scroll = self.add_scroll_area()
+        # horizontal layouts
+        self.horizontal_layouts = []
+        # first row of images
+        self.horizontal_layouts.append(QtGui.QHBoxLayout())
+        self.vertical_layout_scroll.addLayout(self.horizontal_layouts[-1])
+
         self.threads_fetch_image = []
         self.thread_fetch_image_urls = ThreadFetchImageUrls(self.words[0], self.language, self.image_type)
         self.connect(self.thread_fetch_image_urls, ThreadFetchImageUrls.signal_urls_fetched, self.fetch_images)
@@ -109,70 +128,6 @@ class ImageTab(Widget, Result):
                      lambda : self.update_status(ImageTab.SignalType.urls_fetching_started))
 
     # ===========================================================================
-    def add_layout(self):
-        # base vertical layout
-        self.vertical_layout = QtGui.QVBoxLayout(self)
-
-        # header
-        header_layout = QtGui.QHBoxLayout()
-
-        button = QtGui.QPushButton(u"◀")
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.previous_word)
-
-        button = QtGui.QPushButton(u"▶")
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.next_word)
-
-        button = QtGui.QPushButton(u'✘')
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.stop)
-
-        button = QtGui.QPushButton(u"↻")
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.restart)
-
-        self.word_line = QtGui.QLineEdit()
-        self.update_word_line(self.words[0])
-        header_layout.addWidget(self.word_line)
-
-        button = QtGui.QPushButton(u'✔')
-        button.setFixedSize(35, 30)
-        button.setStyleSheet("font-size:18px;")
-        header_layout.addWidget(button)
-        button.clicked.connect(self.go)
-
-        self.vertical_layout.addLayout(header_layout)
-
-        # scroll area
-        self.scroll_area = QtGui.QScrollArea(self)
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area_widget_contents = Widget(mother=self, parent=self.scroll_area)
-        self.scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
-        self.scroll_area.setWidget(self.scroll_area_widget_contents)
-
-        self.vertical_layout.addWidget(self.scroll_area)
-        # scrollable vertical layout
-        self.vertical_layout_scroll = QtGui.QVBoxLayout(self.scroll_area_widget_contents)
-        # horizontal layouts
-        self.horizontal_layouts = []
-        # first row of images
-        self.horizontal_layouts.append(QtGui.QHBoxLayout())
-        self.vertical_layout_scroll.addLayout(self.horizontal_layouts[-1])
-
-    # ===========================================================================
-    def update_word_line(self, word):
-        self.word_line.setText(word)
-
-    # ===========================================================================
     def update_url_thread_word(self, word):
         self.thread_fetch_image_urls.word = word
 
@@ -180,13 +135,19 @@ class ImageTab(Widget, Result):
     def next_word(self):
         if self.current_word_index + 1 < len(self.words):
             self.current_word_index += 1
+            self.button_previous.setEnabled(True)
             self.restart()
+        if self.current_word_index + 1 == len(self.words):
+            self.button_next.setEnabled(False)
 
     # ===========================================================================
     def previous_word(self):
         if self.current_word_index > 0:
             self.current_word_index -= 1
+            self.button_next.setEnabled(True)
             self.restart()
+        if self.current_word_index == 0:
+            self.button_previous.setEnabled(False)
 
     # ===========================================================================
     def remove_images(self):
@@ -322,23 +283,23 @@ class ImageTab(Widget, Result):
                 del self.words[i]
             self.words.append(word)
             self.current_word_index += 1
+            self.button_previous.setEnabled(True)
         self.update_url_thread_word(self.words[self.current_word_index])
         self.start()
 
     # ===========================================================================
     def start(self):
         if not self.fetching_started:
-            if self.dirty:
-                self.remove_images()
-                self.dirty = False
+            self.remove_images()
             self.fetching_started = True
             self.thread_fetch_image_urls.start()
+            self.button_stop.setEnabled(True)
+            self.button_reload.setEnabled(True)
 
     # ===========================================================================
     def restart(self):
         self.stop()
-        self.remove_images()
-        self.update_word_line(self.words[self.current_word_index])
+        self.word_line.setText(self.words[self.current_word_index])
         self.update_url_thread_word(self.words[self.current_word_index])
         self.start()
 
@@ -348,6 +309,6 @@ class ImageTab(Widget, Result):
             self.quit()
             self.terminate()
             self.fetching_started = False
-            self.dirty = True
+            self.button_stop.setEnabled(False)
 
 

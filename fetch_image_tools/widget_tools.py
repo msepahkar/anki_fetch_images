@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from PyQt4 import QtGui
+from PyQt4 import QtGui, QtCore
 from general_tools import Result
 
 
@@ -60,6 +60,19 @@ class UiDesign:
             combo.addItem(item)
         # add them to the horizontal layout
         self.add_row_widgets(label, combo)
+
+    # ===========================================================================
+    def add_scroll_area(self):
+        # scroll area
+        scroll_area = QtGui.QScrollArea(self)
+        scroll_area.setWidgetResizable(True)
+        scroll_area_widget_contents = QtGui.QWidget(parent=scroll_area)
+        scroll_area_widget_contents.setGeometry(QtCore.QRect(0, 0, 50, 100))
+        scroll_area.setWidget(scroll_area_widget_contents)
+
+        self.main_layout.addWidget(scroll_area)
+        # scrollable vertical layout
+        return QtGui.QVBoxLayout(scroll_area_widget_contents)
 
 
 # ===========================================================================
