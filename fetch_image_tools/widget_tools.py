@@ -9,7 +9,7 @@ class Button(QtGui.QPushButton):
     # ===========================================================================
     def __init__(self, text, action, size=None, style=None, enabled=True):
         super(Button, self).__init__(text)
-        self.clicked.connect(action)
+        self.clicked.connect(lambda: action())
         self.setEnabled(enabled)
         if size is not None:
             self.setFixedSize(size)
@@ -19,6 +19,7 @@ class Button(QtGui.QPushButton):
 
 # ===========================================================================
 class UiDesign:
+    stretch = 'stretch'
     # ===========================================================================
     def __init__(self):
         self.main_layout = QtGui.QVBoxLayout()
@@ -28,7 +29,10 @@ class UiDesign:
     def add_row_widgets(self, *widgets):
         h_layout = QtGui.QHBoxLayout()
         for widget in widgets:
-            h_layout.addWidget(widget)
+            if widget == UiDesign.stretch:
+                h_layout.addStretch()
+            else:
+                h_layout.addWidget(widget)
         self.main_layout.addLayout(h_layout)
 
     # ===========================================================================
@@ -163,6 +167,8 @@ class TabWidget(QtGui.QTabWidget):
 
 # ===========================================================================
 class TabWidgetProgress(TabWidget, Result):
+    signal_update = QtCore.SIGNAL('TabWidgetProgress.update')
+
     # ===========================================================================
     def __init__(self, mother, closable=False, parent=None):
         TabWidget.__init__(self, mother, closable, parent)
@@ -170,60 +176,79 @@ class TabWidgetProgress(TabWidget, Result):
 
     # ===========================================================================
     def update_progress(self):
-        mother = self.mother
-        if type(mother) is not TabWidgetProgress:
-            return
-        index = mother.indexOf(self)
-        tab_bar = mother.tabBar()
-
-        self.failed = False
-        self.succeeded = False
-        self.in_progress = False
-        self.progress = 0
+        self.reset_progress()
 
         total_started = 0
         total_failed = 0
         total_succeeded = 0
         total_in_progress = 0
 
+        total_results = 0
         for i in range(self.count()):
-            if self.widget(i).started:
-                total_started += 1
-            if self.widget(i).failed:
-                total_failed += 1
-            if self.widget(i).succeeded:
-                total_succeeded += 1
-                self.progress += 100
-            if self.widget(i).in_progress:
-                total_in_progress += 1
-                self.progress += self.widget(i).progress
+            if isinstance(self.widget(i), Result):
+                total_results += 1
+                
+                if self.widget(i).started:
+                    total_started += 1
+                if self.widget(i).failed:
+                    total_failed += 1
+                if self.widget(i).succeeded:
+                    total_succeeded += 1
+                    self.progress += 100
+                if self.widget(i).in_progress:
+                    total_in_progress += 1
+                    self.progress += self.widget(i).progress
 
         if total_in_progress + total_succeeded > 0:
             self.progress /= (total_in_progress + total_succeeded)
 
         # all started
-        if total_started == self.count():
+        if total_started == total_results:
             self.started = True
-            tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, Result.started_color)
         # all failed
-        elif total_failed == self.count():
+        elif total_failed == total_results:
             self.failed = True
-            tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, Result.failed_color)
         # all succeeded
-        elif total_succeeded == self.count():
+        elif total_succeeded == total_results:
             self.succeeded = True
-            tab_bar.setTabText(index, self.label)
-            tab_bar.setTabTextColor(index, Result.succeeded_color)
         # all in progress
-        elif total_in_progress == self.count():
+        elif total_in_progress == total_results:
             self.in_progress = True
-            tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
-            tab_bar.setTabTextColor(index, Result.in_progress_color)
         # at least one in progress
         elif total_in_progress > 0:
             self.in_progress = True
+        # nothing in progress, but at least one started
+        elif total_started > 0:
+            self.started = True
+        # nothing in progress and nothing started, but at least one succeeded
+        elif total_succeeded > 0:
+            self.succeeded = True
+
+        mother = self.mother
+        if not isinstance(mother, TabWidgetProgress):
+            self.emit(TabWidgetProgress.signal_update)
+            return
+        index = mother.indexOf(self)
+        tab_bar = mother.tabBar()
+
+        # all started
+        if self.started:
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, Result.started_color)
+        # all failed
+        elif self.failed:
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, Result.failed_color)
+        # all succeeded
+        elif self.succeeded:
+            tab_bar.setTabText(index, self.label)
+            tab_bar.setTabTextColor(index, Result.succeeded_color)
+        # all in progress
+        elif self.in_progress:
+            tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
+            tab_bar.setTabTextColor(index, Result.in_progress_color)
+        # at least one in progress
+        elif self.in_progress:
             tab_bar.setTabText(index, self.label + ' ' + str(self.progress) + '%')
             # any failed or any started?
             if total_failed > 0 or total_started > 0:
@@ -232,13 +257,11 @@ class TabWidgetProgress(TabWidget, Result):
             else:
                 tab_bar.setTabTextColor(index, Result.in_progress_color)
         # nothing in progress, but at least one started
-        elif total_started > 0:
-            self.started = True
+        elif self.started:
             tab_bar.setTabText(index, self.label)
             tab_bar.setTabTextColor(index, Result.started_color)
         # nothing in progress and nothing started, but at least one succeeded
-        elif total_succeeded > 0:
-            self.succeeded = True
+        elif self.succeeded:
             # any failed?
             if total_failed > 0:
                 tab_bar.setTabText(index, self.label)

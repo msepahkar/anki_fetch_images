@@ -6,14 +6,16 @@ from PIL.ImageQt import ImageQt
 from general_tools import enum, Result, ImageType
 from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
 from widget_tools import *
+from fetch_image_note_tools import *
 
 
 # ===========================================================================
-class GraphicsView(QtGui.QGraphicsView):
+class ImageGraphicsView(QtGui.QGraphicsView):
+    set_image_signal = QtCore.SIGNAL('ImageTab.set_image')
     # ===========================================================================
-    def __init__(self, number, w, h, main_dialog, parent=None):
-        super(GraphicsView, self).__init__(parent)
-        self.main_dialog = main_dialog
+    def __init__(self, number, w, h, mother, parent=None):
+        super(ImageGraphicsView, self).__init__(parent)
+        self.mother = mother
         self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self.setResizeAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
         self.setMouseTracking(True)
@@ -66,16 +68,7 @@ class GraphicsView(QtGui.QGraphicsView):
 
     # ===========================================================================
     def set_image(self):
-        # full_base_name = os.path.join(self.main_dialog.media_dir, self.main_dialog.word)
-        # full_f_name = full_base_name + ".png"
-        # if os.path.exists(full_f_name):
-        #     i = 0
-        #     while os.path.exists(full_f_name):
-        #         i += 1
-        #         full_f_name = full_base_name + '_' + str(i) + '.png'
-        # self.main_dialog.full_image_file_name = full_f_name
-        self.main_dialog.selected_image = self.image
-        # self.image.save(full_f_name)
+        self.emit(ImageGraphicsView.set_image_signal, self.image)
 
 
 # ===========================================================================
@@ -86,11 +79,13 @@ class ImageTab(Widget, Result):
     NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 5
 
     # ===========================================================================
-    def __init__(self, word, language, image_type, mother, parent=None):
+    def __init__(self, note, language, image_type, mother, parent=None):
         Widget.__init__(self, mother, parent)
         Result.__init__(self)
         self.fetching_started = False
         self.words=[]
+        self.note = note
+        word = get_main_word(note)
         self.words.append(word)
         self.current_word_index = 0
         self.n_urls = 0
@@ -98,6 +93,7 @@ class ImageTab(Widget, Result):
         self.n_ignored = 0
         self.language = language
         self.image_type = image_type
+        self.selected_image = None
 
         size = QtCore.QSize(35, 30)
         style = "font-size:18px;"
@@ -172,7 +168,8 @@ class ImageTab(Widget, Result):
 
     # ===========================================================================
     def add_fetched_image(self, image_number, image):
-        view = GraphicsView(1, image.size[0], image.size[1], self)
+        view = ImageGraphicsView(1, image.size[0], image.size[1], self)
+        self.connect(view, ImageGraphicsView.set_image_signal, self.set_image)
         view.image = image
         view.setMinimumHeight(image.size[1] / 2)
         view.display_image(image_number, image)
@@ -189,6 +186,10 @@ class ImageTab(Widget, Result):
             self.horizontal_layouts.append(horizontal_layout)
             self.vertical_layout_scroll.addLayout(self.horizontal_layouts[-1])
             horizontal_layout.addWidget(view)
+
+    # ===========================================================================
+    def set_image(self, image):
+        self.emit(ImageGraphicsView.set_image_signal, self.note, image)
 
     # ===========================================================================
     def update_status(self, signal_type, param=None):

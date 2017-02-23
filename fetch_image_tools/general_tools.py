@@ -50,6 +50,13 @@ class Result:
         self._progress = 0
 
     # ===========================================================================
+    def reset_progress(self):
+        self.failed = False
+        self.succeeded = False
+        self.in_progress = False
+        self.progress = 0
+
+    # ===========================================================================
     @property
     def started(self):
         return self._started

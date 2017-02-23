@@ -37,5 +37,10 @@ def update_note(note):
     return
 
 # ===========================================================================
+def set_image(note, image):
+    print('image set for note: {}'.format(unicode(note.main_word)))
+    return
+
+# ===========================================================================
 def new_note():
     return Note('new word', Language.english, ['f1', 'f2', 'f3'], ['', '', ''])

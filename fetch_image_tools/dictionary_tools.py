@@ -177,6 +177,7 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
 
 # ===========================================================================
 class AudioListWidget(QtGui.QListWidget):
+    set_audio_signal = QtCore.SIGNAL('AudioListWidget.set_audio')
     Status = enum(empty=1, discovered=2, fetching=3, fetched=4, failed=5)
 
     # ===========================================================================
@@ -197,13 +198,10 @@ class AudioListWidget(QtGui.QListWidget):
             if self.item(i).url == url:
                 return
         item = AudioListWidgetItem(url)
+        self.connect(item, AudioListWidgetItem.set_audio_signal, self, self.set_audio)
         self.addItem(item)
         # item.add_button()
 
-    # # ===========================================================================
-    # def load_audio(self, item):
-    #     item.load_audio()
-    #
     # ===========================================================================
     def mousePressEvent(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
@@ -211,6 +209,21 @@ class AudioListWidget(QtGui.QListWidget):
             if item:
                 item.handle_click(event.pos())
         return QtGui.QListWidget.mousePressEvent(self, event)
+
+    # ===========================================================================
+    def contextMenuEvent(self, event):
+        item = self.itemAt(event.pos())
+        if item is not None and item.status == AudioListWidget.Status.fetched:
+            menu = QtGui.QMenu(self)
+
+            Action = menu.addAction("set this audio")
+            Action.triggered.connect(self.set_audio, item)
+
+            menu.exec_(self.mapToGlobal(event.pos()))
+
+    # ===========================================================================
+    def set_audio(self, item):
+        self.emit(AudioListWidgetItem.set_audio_signal, item.audio_file)
 
 
 # ===========================================================================

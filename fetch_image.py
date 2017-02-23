@@ -7,24 +7,21 @@ from PyQt4 import QtGui
 from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import *
 from fetch_image_tools.dictionary_tools import DictionaryTab
-from fetch_image_tools.image_tools import ImageTab
+from fetch_image_tools.image_tools import ImageTab, ImageGraphicsView
 from fetch_image_note_tools import *
 
 
 # ===========================================================================
-class MainDialog(Dialog):
+class MainDialog(Dialog, Result):
     # ===========================================================================
     def __init__(self, notes, parent=None):
-        super(MainDialog, self).__init__(parent)
+        Dialog.__init__(self, parent)
+        Result.__init__(self)
 
         pygame.init()
 
         self.dirty = dict()
-        self.full_image_file_names = dict()
-        self.selected_images = dict()
         self.main_tabs = dict()
-        if len(notes) > 0:
-            self.media_dir = get_meida_dir(notes[0])
 
         # window
         self.resize(1000, 1000)
@@ -40,25 +37,25 @@ class MainDialog(Dialog):
         button_update = Button('update', self.update_note)
         button_new = Button('new', self.new_note)
 
-        self.add_row_widgets(button_previous, button_next, button_start, button_stop, button_start_all, button_stop_all,
-                             button_update_all, button_update, button_new)
+        self.add_row_widgets(button_previous, button_next, button_new, UiDesign.stretch,
+                             button_start, button_stop, UiDesign.stretch,
+                             button_start_all, button_stop_all, UiDesign.stretch,
+                             button_update, button_update_all)
 
         self.notes = notes
         for note in self.notes:
             self.add_note(note)
 
         self.current_note_index = 0
-        self.setWindowTitle(get_main_word(self.notes[self.current_note_index]))
         self.show_main_tab(notes[self.current_note_index])
 
     # ===========================================================================
     def add_note(self, note):
-        self.full_image_file_names[note] = None
-        self.selected_images[note] = None
         self.dirty[note] = False
 
         # main tab
         self.main_tabs[note] = TabWidgetProgress(mother=self)
+        self.connect(self.main_tabs[note], TabWidgetProgress.signal_update, self.update_progress)
 
         # word fields
         self.main_tabs[note].tab_word_fields = Widget(self.main_tabs[note])
@@ -216,8 +213,89 @@ class MainDialog(Dialog):
         self.main_tabs[note].tab_images.addTab(tab, get_main_word(note))
 
         for image_type in sorted(ImageType.items, key=lambda x:x):
-            image_tab = ImageTab(get_main_word(note), get_language(note), image_type, mother=tab)
+            image_tab = ImageTab(note, get_language(note), image_type, mother=tab)
+            self.connect(image_tab, ImageGraphicsView.set_image_signal, self.set_image)
             tab.addTab(image_tab, ImageType.names[image_type])
+
+    # ===========================================================================
+    def set_image(self, note, image):
+        set_image(note, image)
+        self.dirty[note] = True
+
+    # ===========================================================================
+    def update_progress(self):
+        self.reset_progress()
+        
+        total_started = 0
+        total_failed = 0
+        total_succeeded = 0
+        total_in_progress = 0
+
+        for note in self.main_tabs:
+            main_tab = self.main_tabs[note]
+            if main_tab.started:
+                total_started += 1
+            if main_tab.failed:
+                total_failed += 1
+            if main_tab.succeeded:
+                total_succeeded += 1
+                self.progress += 100
+            if main_tab.in_progress:
+                total_in_progress += 1
+                self.progress += main_tab.progress
+
+        if total_in_progress + total_succeeded > 0:
+            self.progress /= (total_in_progress + total_succeeded)
+            
+        current_word = get_main_word(self.notes[self.current_note_index])
+
+        # all started
+        if total_started == len(self.main_tabs):
+            self.started = True
+            
+            self.setWindowTitle(current_word)
+            # tab_bar.setTabTextColor(index, Result.started_color)
+        # all failed
+        elif total_failed == len(self.main_tabs):
+            self.failed = True
+            self.setWindowTitle(current_word)
+            # tab_bar.setTabTextColor(index, Result.failed_color)
+        # all succeeded
+        elif total_succeeded == len(self.main_tabs):
+            self.succeeded = True
+            self.setWindowTitle(current_word)
+            # tab_bar.setTabTextColor(index, Result.succeeded_color)
+        # all in progress
+        elif total_in_progress == len(self.main_tabs):
+            self.in_progress = True
+            self.setWindowTitle(current_word + ' ' + str(self.progress) + '%')
+            # tab_bar.setTabTextColor(index, Result.in_progress_color)
+        # at least one in progress
+        elif total_in_progress > 0:
+            self.in_progress = True
+            self.setWindowTitle(current_word + ' ' + str(self.progress) + '%')
+            # any failed or any started?
+            # if total_failed > 0 or total_started > 0:
+                # tab_bar.setTabTextColor(index, Result.weak_in_progress_color)
+            # no fail and no started
+            # else:
+            #     tab_bar.setTabTextColor(index, Result.in_progress_color)
+        # nothing in progress, but at least one started
+        elif total_started > 0:
+            self.started = True
+            self.setWindowTitle(current_word)
+            # tab_bar.setTabTextColor(index, Result.started_color)
+        # nothing in progress and nothing started, but at least one succeeded
+        elif total_succeeded > 0:
+            self.succeeded = True
+            # any failed?
+            if total_failed > 0:
+                self.setWindowTitle(current_word)
+                # tab_bar.setTabTextColor(index, Result.weak_succeeded_color)
+            # no fail
+            else:
+                self.setWindowTitle(current_word)
+                # tab_bar.setTabTextColor(index, Result.succeeded_color)
 
     # ===========================================================================
     def closeEvent(self, event):
