@@ -29,10 +29,6 @@ def get_language(note):
     return note.language
 
 # ===========================================================================
-def get_meida_dir(note):
-    return ''
-
-# ===========================================================================
 def update_note(note):
     return
 

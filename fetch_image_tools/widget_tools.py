@@ -90,15 +90,15 @@ class UiDesign:
         self.main_layout.addWidget(widget)
 
     # ===========================================================================
-    def add_line_edit(self, name):
+    def add_line_edit(self, name, value=''):
         # create label and line edit
         label = QtGui.QLabel(name)
-        line_edit = QtGui.QLineEdit()
+        line_edit = QtGui.QLineEdit(value)
         # add them to a horizontal layout
         self.add_row_widgets(label, line_edit)
 
     # ===========================================================================
-    def add_text_edit(self, name, value=''):
+    def add_text_edit(self, name, value='', compact=False):
         # create label and line edit
         label = QtGui.QLabel(name)
         text_edit = QtGui.QTextEdit(value)

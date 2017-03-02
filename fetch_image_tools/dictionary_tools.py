@@ -6,7 +6,7 @@ import os
 import math
 from PyQt4 import QtGui, QtCore
 from PyQt4 import QtWebKit
-from general_tools import enum, Result, Language
+from general_tools import enum, Result, Language, find_unique_file_name
 from thread_tools import ThreadFetchAudio
 from widget_tools import *
 from fetch_image_note_tools import *
@@ -108,14 +108,16 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
     def __init__(self, url):
         super(AudioListWidgetItem, self).__init__()
         self.url = url
-        f = tempfile.NamedTemporaryFile(delete=False)
-        f.close()
-        self.audio_file = f.name
+        extention =  os.path.splitext(url)[1]
+        file_name = find_unique_file_name(tempfile.gettempdir(), 'add_image', extention)
+        # f = tempfile.NamedTemporaryFile(delete=False)
+        # f.close()
+        self.audio_file = file_name
         self._status = AudioListWidget.Status.discovered
         self.setText(AudioListWidget.Status.names[self._status])
         self.progress = 0
         self.progress_circle = None
-        self.thread = ThreadFetchAudio(url, f.name)
+        self.thread = ThreadFetchAudio(url, file_name)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetched, self.audio_fetched)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetching_progress, self.update_progress)
 
@@ -325,7 +327,6 @@ class Browser(Widget):
         self.add_widget(self.inline_browser)
 
         self.audio_window = AudioListWidget()
-        self.connect(self.audio_window, AudioListWidget.set_audio_signal, self.set_audio)
         self.audio_window.hide()
         self.add_widget(self.audio_window)
 
@@ -413,10 +414,6 @@ class Browser(Widget):
                     self.audio_window.add(url)
 
     # ===========================================================================
-    def set_audio(self, audio_file):
-        set_audio(self.note, audio_file)
-
-    # ===========================================================================
     def quit(self):
         self.inline_browser.stop()
         for i in range(self.audio_window.count()):
@@ -435,17 +432,17 @@ class Browser(Widget):
 # ===========================================================================
 class DictionaryTab(Widget, Result):
     dictionaries = dict()
-    dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/')]#,
-                                      # ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
-                                      # ('webster', 'https://www.merriam-webster.com/dictionary/'),
-                                      # ('oxford', 'https://en.oxforddictionaries.com/definition/us/'),
-                                      # ('forvo', 'https://forvo.com/search/')]
-    dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
-                                     ('dict.cc', 'http://www.dict.cc/?s='),
-                                     ('leo.org', 'http://dict.leo.org/german-english/'),
-                                     ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
-                                     ('duden', 'http://www.duden.de/suchen/dudenonline/'),
-                                     ('forvo', 'https://forvo.com/search/')]
+    dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/'),
+                                      ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
+                                      ('webster', 'https://www.merriam-webster.com/dictionary/'),
+                                      ('oxford', 'https://en.oxforddictionaries.com/definition/us/'),
+                                      ('forvo', 'https://forvo.com/search/')]
+    # dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
+    #                                  ('dict.cc', 'http://www.dict.cc/?s='),
+    #                                  ('leo.org', 'http://dict.leo.org/german-english/'),
+    #                                  ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
+    #                                  ('duden', 'http://www.duden.de/suchen/dudenonline/'),
+    #                                  ('forvo', 'https://forvo.com/search/')]
 
     # ===========================================================================
     def __init__(self, address_pair, note, mother, parent=None):

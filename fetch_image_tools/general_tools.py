@@ -1,4 +1,5 @@
 import re, urlparse
+import os
 from PyQt4 import QtCore
 
 
@@ -133,3 +134,11 @@ class Result:
             self._failed = False
 
 
+# ===========================================================================
+def find_unique_file_name(dir, name, ext):
+    file_name = os.path.join(dir, name + ext)
+    i = 0
+    while os.path.exists(file_name):
+        i += 1
+        file_name = os.path.join(dir, name + ext)
+    return file_name

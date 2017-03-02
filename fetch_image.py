@@ -6,7 +6,7 @@ from PyQt4 import QtGui
 
 from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import *
-from fetch_image_tools.dictionary_tools import DictionaryTab
+from fetch_image_tools.dictionary_tools import DictionaryTab, AudioListWidget
 from fetch_image_tools.image_tools import ImageTab, ImageGraphicsView
 from fetch_image_note_tools import *
 
@@ -59,9 +59,15 @@ class MainDialog(Dialog, Result):
         self.main_tabs[note].addTab(self.main_tabs[note].tab_word_fields, 'word')
 
         # main word
+        vertical_layout = self.main_tabs[note].tab_word_fields.add_scroll_area()
         fields, values = get_fields(note)
         for i in range(len(fields)):
-            self.main_tabs[note].tab_word_fields.add_text_edit(fields[i], values[i])
+            h_layout = QtGui.QHBoxLayout()
+            label = QtGui.QLabel(fields[i])
+            text_edit = QtGui.QTextEdit(values[i])
+            h_layout.addWidget(label)
+            h_layout.addWidget(text_edit)
+            vertical_layout.addLayout(h_layout)
 
         # dictionaries
         self.main_tabs[note].tab_dictionaries = TabWidgetProgress(mother=self.main_tabs[note], closable=True, action=lambda: self.stop_dictionarires(note))
@@ -274,6 +280,7 @@ class MainDialog(Dialog, Result):
         self.main_tabs[note].tab_dictionaries.addTab(tab, get_main_word(note))
         for dictionary in DictionaryTab.dictionaries[get_language(note)]:
             dictionary_tab = DictionaryTab(dictionary, note, mother=tab)
+            self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, lambda audio_file: self.set_audio(note, audio_file))
             tab.addTab(dictionary_tab, dictionary_tab.name)
 
     # ===========================================================================
@@ -289,6 +296,11 @@ class MainDialog(Dialog, Result):
     # ===========================================================================
     def set_image(self, note, image):
         set_image(note, image)
+        self.dirty[note] = True
+
+    # ===========================================================================
+    def set_audio(self, note, audio_file):
+        set_audio(note, audio_file)
         self.dirty[note] = True
 
     # ===========================================================================
