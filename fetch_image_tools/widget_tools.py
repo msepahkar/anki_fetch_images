@@ -5,6 +5,54 @@ from general_tools import Result
 
 
 # ===========================================================================
+class VerticalLayout(QtGui.QVBoxLayout):
+    def __init__(self, widget_list, parent = None):
+        super(VerticalLayout, self).__init__(parent)
+        for widget in widget_list:
+            if isinstance(widget, QtGui.QLayout):
+                self.addLayout(widget)
+            elif isinstance(widget, QtGui.QWidget):
+                self.addWidget(widget)
+            elif widget == UiDesign.stretch:
+                self.addStretch()
+
+
+# ===========================================================================
+class HorizontalLayout(QtGui.QHBoxLayout):
+    def __init__(self, widget_list, parent = None):
+        super(HorizontalLayout, self).__init__(parent)
+        for widget in widget_list:
+            if isinstance(widget, QtGui.QLayout):
+                self.addLayout(widget)
+            elif isinstance(widget, QtGui.QWidget):
+                self.addWidget(widget)
+            elif widget == UiDesign.stretch:
+                self.addStretch()
+
+
+# ===========================================================================
+class HorizontalPlaceHoder(QtGui.QWidget):
+    def __init__(self, widget_list, max_width=None, parent=None):
+        super(HorizontalPlaceHoder, self).__init__(parent)
+        
+        self.setLayout(HorizontalLayout(widget_list))
+
+        if max_width:
+            self.setMaximumWidth(max_width)
+
+
+# ===========================================================================
+class VerticalPlaceHoder(QtGui.QWidget):
+    def __init__(self, widget_list, max_height=None, parent=None):
+        super(VerticalPlaceHoder, self).__init__(parent)
+
+        self.setLayout(VerticalLayout(widget_list))
+
+        if max_height:
+            self.setMaximumHeight(max_height)
+
+
+# ===========================================================================
 class Button(QtGui.QPushButton):
     # ===========================================================================
     def __init__(self, text, action, size=None, style=None, enabled=True):
@@ -29,9 +77,11 @@ class UiDesign:
     def add_row_widgets(self, *widgets):
         h_layout = QtGui.QHBoxLayout()
         for widget in widgets:
-            if widget == UiDesign.stretch:
+            if isinstance(widget, QtGui.QLayout):
+                h_layout.addLayout(widget)
+            elif widget == UiDesign.stretch:
                 h_layout.addStretch()
-            else:
+            elif isinstance(widget, QtGui.QWidget):
                 h_layout.addWidget(widget)
         self.main_layout.addLayout(h_layout)
 
@@ -153,10 +203,12 @@ class Dialog(QtGui.QDialog, UiDesign):
 # ===========================================================================
 class TabWidget(QtGui.QTabWidget):
     # ===========================================================================
-    def __init__(self, mother, closable=False, parent=None):
+    def __init__(self, mother, closable=False, action=None, parent=None):
         super(TabWidget, self).__init__(parent)
         self.mother = mother
-        self.tabBar().setTabsClosable(closable)
+        self.setTabsClosable(closable)
+        if action:
+            self.tabCloseRequested.connect(action)
         self.label = ''
 
     # ===========================================================================
@@ -170,8 +222,8 @@ class TabWidgetProgress(TabWidget, Result):
     signal_update = QtCore.SIGNAL('TabWidgetProgress.update')
 
     # ===========================================================================
-    def __init__(self, mother, closable=False, parent=None):
-        TabWidget.__init__(self, mother, closable, parent)
+    def __init__(self, mother, closable=False, action=None, parent=None):
+        TabWidget.__init__(self, mother, closable, action, parent)
         Result.__init__(self)
 
     # ===========================================================================

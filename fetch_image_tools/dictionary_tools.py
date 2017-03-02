@@ -9,6 +9,7 @@ from PyQt4 import QtWebKit
 from general_tools import enum, Result, Language
 from thread_tools import ThreadFetchAudio
 from widget_tools import *
+from fetch_image_note_tools import *
 
 
 # ===========================================================================#########
@@ -198,7 +199,7 @@ class AudioListWidget(QtGui.QListWidget):
             if self.item(i).url == url:
                 return
         item = AudioListWidgetItem(url)
-        self.connect(item, AudioListWidgetItem.set_audio_signal, self, self.set_audio)
+        # self.connect(item, AudioListWidgetItem.set_audio_signal, self, self.set_audio)
         self.addItem(item)
         # item.add_button()
 
@@ -217,13 +218,13 @@ class AudioListWidget(QtGui.QListWidget):
             menu = QtGui.QMenu(self)
 
             Action = menu.addAction("set this audio")
-            Action.triggered.connect(self.set_audio, item)
+            Action.triggered.connect(lambda: self.set_audio(item))
 
             menu.exec_(self.mapToGlobal(event.pos()))
 
     # ===========================================================================
     def set_audio(self, item):
-        self.emit(AudioListWidgetItem.set_audio_signal, item.audio_file)
+        self.emit(AudioListWidget.set_audio_signal, item.audio_file)
 
 
 # ===========================================================================
@@ -291,9 +292,10 @@ class Browser(Widget):
     signal_finished = QtCore.SIGNAL("Browser.finished")
 
     # ===========================================================================
-    def __init__(self, mother):
+    def __init__(self, note, mother):
         super(Browser, self).__init__(mother)
 
+        self.note = note
         self.total_backs = 0
         self.current_back = 0
         self.forwarded = self.backwarded = self.went = False
@@ -323,6 +325,7 @@ class Browser(Widget):
         self.add_widget(self.inline_browser)
 
         self.audio_window = AudioListWidget()
+        self.connect(self.audio_window, AudioListWidget.set_audio_signal, self.set_audio)
         self.audio_window.hide()
         self.add_widget(self.audio_window)
 
@@ -410,6 +413,10 @@ class Browser(Widget):
                     self.audio_window.add(url)
 
     # ===========================================================================
+    def set_audio(self, audio_file):
+        set_audio(self.note, audio_file)
+
+    # ===========================================================================
     def quit(self):
         self.inline_browser.stop()
         for i in range(self.audio_window.count()):
@@ -428,11 +435,11 @@ class Browser(Widget):
 # ===========================================================================
 class DictionaryTab(Widget, Result):
     dictionaries = dict()
-    dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/'),
-                                      ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
-                                      ('webster', 'https://www.merriam-webster.com/dictionary/'),
-                                      ('oxford', 'https://en.oxforddictionaries.com/definition/us/'),
-                                      ('forvo', 'https://forvo.com/search/')]
+    dictionaries[Language.english] = [('google translate', 'https://translate.google.com/#en/fa/')]#,
+                                      # ('vocabulary.com', 'https://www.vocabulary.com/dictionary/'),
+                                      # ('webster', 'https://www.merriam-webster.com/dictionary/'),
+                                      # ('oxford', 'https://en.oxforddictionaries.com/definition/us/'),
+                                      # ('forvo', 'https://forvo.com/search/')]
     dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
                                      ('dict.cc', 'http://www.dict.cc/?s='),
                                      ('leo.org', 'http://dict.leo.org/german-english/'),
@@ -441,18 +448,18 @@ class DictionaryTab(Widget, Result):
                                      ('forvo', 'https://forvo.com/search/')]
 
     # ===========================================================================
-    def __init__(self, address_pair, word, mother, parent=None):
+    def __init__(self, address_pair, note, mother, parent=None):
         Widget.__init__(self, mother, parent)
         Result.__init__(self)
         
         self.browsing_started = False
         self.name = address_pair[0]
         self.web_address = address_pair[1]
-        self.word = word
-        word = word.split()
+        self.note = note
+        word = get_main_word(note).split()
         word = '+'.join(word)
         self.url = self.web_address + word
-        self.browser = Browser(self)
+        self.browser = Browser(note, mother=self)
         self.connect(self.browser, Browser.signal_started, lambda: self.update_status(InlineBrowser.SignalType.started))
         self.connect(self.browser, Browser.signal_progress, lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
         self.connect(self.browser, Browser.signal_finished, lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
@@ -505,3 +512,5 @@ class DictionaryTab(Widget, Result):
     def stop(self):
         self.browsing_started = False
         self.browser.stop()
+
+

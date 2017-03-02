@@ -42,5 +42,10 @@ def set_image(note, image):
     return
 
 # ===========================================================================
+def set_audio(note, audio_file):
+    print(u'audio set for note: {}'.format(unicode(note.main_word)))
+    return
+
+# ===========================================================================
 def new_note():
     return Note('new word', Language.english, ['f1', 'f2', 'f3'], ['', '', ''])

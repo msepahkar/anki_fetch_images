@@ -27,20 +27,17 @@ class MainDialog(Dialog, Result):
         self.resize(1000, 1000)
 
         # main layout
-        button_next = Button('Next', self.next_note)
-        button_previous = Button('Previous', self.previous_note)
-        button_start = Button('start', self.start)
-        button_start_all = Button('start all', self.start_all)
-        button_stop = Button('stop', self.stop)
-        button_stop_all = Button('stop all', self.stop_all)
-        button_update_all = Button('update all', self.update_all_notes)
-        button_update = Button('update', self.update_note)
+        word_buttons = VerticalLayout([Button('Word +', self.next_note), Button('Word -', self.previous_note)])
+        dict_buttons = VerticalLayout([Button('Dict go', self.start_dictionaries), Button('Dict no', self.stop_dictionarires)])
+        image_buttons = VerticalLayout([Button('Image go', self.start_images), Button('Image no', self.stop_images)])
+        dict_all_buttons = VerticalLayout([Button('Dict all go', self.start_all_dictionaries), Button('Dict all no', self.stop_all_dictionaries)])
+        image_all_buttons = VerticalLayout([Button('Image all go', self.start_all_images), Button('Image all no', self.stop_all_images)])
+        update_buttons = VerticalLayout([Button('update', self.update_note), Button('update all', self.update_all_notes)])
+
         button_new = Button('new', self.new_note)
 
-        self.add_row_widgets(button_previous, button_next, button_new, UiDesign.stretch,
-                             button_start, button_stop, UiDesign.stretch,
-                             button_start_all, button_stop_all, UiDesign.stretch,
-                             button_update, button_update_all)
+        self.add_row_widgets(word_buttons, button_new, UiDesign.stretch, dict_buttons, image_buttons,
+                             dict_all_buttons, image_all_buttons, UiDesign.stretch, update_buttons)
 
         self.notes = notes
         for note in self.notes:
@@ -67,14 +64,14 @@ class MainDialog(Dialog, Result):
             self.main_tabs[note].tab_word_fields.add_text_edit(fields[i], values[i])
 
         # dictionaries
-        self.main_tabs[note].tab_dictionaries = TabWidgetProgress(mother=self.main_tabs[note])
+        self.main_tabs[note].tab_dictionaries = TabWidgetProgress(mother=self.main_tabs[note], closable=True, action=lambda: self.stop_dictionarires(note))
         self.main_tabs[note].addTab(self.main_tabs[note].tab_dictionaries, 'dictinoaries')
 
         # main word dictionaries
         self.add_dictionary_tabs(note)
 
         # images
-        self.main_tabs[note].tab_images = TabWidgetProgress(mother=self.main_tabs[note])
+        self.main_tabs[note].tab_images = TabWidgetProgress(mother=self.main_tabs[note], closable=True, action=lambda: self.stop_images(note))
         self.main_tabs[note].addTab(self.main_tabs[note].tab_images, 'images')
 
         # main word images
@@ -88,6 +85,14 @@ class MainDialog(Dialog, Result):
         self.setWindowTitle(get_main_word(note))
         main_tab = self.main_tabs[note]
         main_tab.show()
+
+    # ===========================================================================
+    def stop_dictionary(self, tab, index):
+        tab.widget(index).stop()
+
+    # ===========================================================================
+    def stop_image(self, tab, index):
+        tab.widget(index).stop()
 
     # ===========================================================================
     def start(self, note=None):
@@ -112,6 +117,40 @@ class MainDialog(Dialog, Result):
             image_tab.stop()
 
     # ===========================================================================
+    def start_dictionaries(self, note=None):
+        if note is None:
+            note = self.notes[self.current_note_index]
+        main_tab = self.main_tabs[note]
+        for dictionary_tab in main_tab.findChildren(DictionaryTab):
+            if not dictionary_tab.browsing_started:
+                dictionary_tab.start()
+
+    # ===========================================================================
+    def stop_dictionarires(self, note=None):
+        if note is None:
+            note = self.notes[self.current_note_index]
+        main_tab = self.main_tabs[note]
+        for dictionary_tab in main_tab.findChildren(DictionaryTab):
+            dictionary_tab.stop()
+
+    # ===========================================================================
+    def start_images(self, note=None):
+        if note is None:
+            note = self.notes[self.current_note_index]
+        main_tab = self.main_tabs[note]
+        for image_tab in main_tab.findChildren(ImageTab):
+            if not image_tab.fetching_started:
+                image_tab.start()
+
+    # ===========================================================================
+    def stop_images(self, note=None):
+        if note is None:
+            note = self.notes[self.current_note_index]
+        main_tab = self.main_tabs[note]
+        for image_tab in main_tab.findChildren(ImageTab):
+            image_tab.stop()
+
+    # ===========================================================================
     def start_all(self):
         for note in self.notes:
             main_tab = self.main_tabs[note]
@@ -128,6 +167,36 @@ class MainDialog(Dialog, Result):
             main_tab = self.main_tabs[note]
             for dictionary_tab in main_tab.findChildren(DictionaryTab):
                 dictionary_tab.stop()
+            for image_tab in main_tab.findChildren(ImageTab):
+                image_tab.stop()
+
+    # ===========================================================================
+    def start_all_dictionaries(self):
+        for note in self.notes:
+            main_tab = self.main_tabs[note]
+            for dictionary_tab in main_tab.findChildren(DictionaryTab):
+                if not dictionary_tab.browsing_started:
+                    dictionary_tab.start()
+
+    # ===========================================================================
+    def stop_all_dictionaries(self):
+        for note in self.notes:
+            main_tab = self.main_tabs[note]
+            for dictionary_tab in main_tab.findChildren(DictionaryTab):
+                dictionary_tab.stop()
+
+    # ===========================================================================
+    def start_all_images(self):
+        for note in self.notes:
+            main_tab = self.main_tabs[note]
+            for image_tab in main_tab.findChildren(ImageTab):
+                if not image_tab.fetching_started:
+                    image_tab.start()
+
+    # ===========================================================================
+    def stop_all_images(self):
+        for note in self.notes:
+            main_tab = self.main_tabs[note]
             for image_tab in main_tab.findChildren(ImageTab):
                 image_tab.stop()
 
@@ -201,15 +270,15 @@ class MainDialog(Dialog, Result):
     # ===========================================================================
     def add_dictionary_tabs(self, note):
         # english dictionaries
-        tab = TabWidgetProgress(mother=self.main_tabs[note].tab_dictionaries, closable=True)
+        tab = TabWidgetProgress(mother=self.main_tabs[note].tab_dictionaries, closable=True, action=lambda index: self.stop_dictionary(tab, index))
         self.main_tabs[note].tab_dictionaries.addTab(tab, get_main_word(note))
         for dictionary in DictionaryTab.dictionaries[get_language(note)]:
-            dictionary_tab = DictionaryTab(dictionary, get_main_word(note), mother=tab)
+            dictionary_tab = DictionaryTab(dictionary, note, mother=tab)
             tab.addTab(dictionary_tab, dictionary_tab.name)
 
     # ===========================================================================
     def add_image_tabs(self, note):
-        tab = TabWidgetProgress(mother=self.main_tabs[note].tab_images, closable=True)
+        tab = TabWidgetProgress(mother=self.main_tabs[note].tab_images, closable=True, action=lambda index: self.stop_image(tab, index))
         self.main_tabs[note].tab_images.addTab(tab, get_main_word(note))
 
         for image_type in sorted(ImageType.items, key=lambda x:x):
