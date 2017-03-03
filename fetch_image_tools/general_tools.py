@@ -136,9 +136,11 @@ class Result:
 
 # ===========================================================================
 def find_unique_file_name(dir, name, ext):
+    if not ext.startswith('.'):
+        ext = '.' + ext
     file_name = os.path.join(dir, name + ext)
     i = 0
     while os.path.exists(file_name):
         i += 1
-        file_name = os.path.join(dir, name + ext)
+        file_name = os.path.join(dir, name + str(i) + ext)
     return file_name

@@ -232,11 +232,12 @@ class MainDialog(Dialog, Result):
     def update_note(self):
         note = self.notes[self.current_note_index]
         if self.dirty[note]:
-            result = YesAllNoMessageBox(note.main_word + '\n is changed.', 'update it?').show()
+            result = YesAllNoMessageBox(get_main_word(note) + '\n is changed.', 'update it?').show()
             if result == YesAllNoMessageBox.YesAll:
                 self.update_all_notes()
             elif result:
                 update_note(note)
+                self.dirty[note] = False
 
     # ===========================================================================
     def update_all_notes(self):
@@ -247,6 +248,7 @@ class MainDialog(Dialog, Result):
             for note in self.notes:
                 if self.dirty[note]:
                     update_note(note)
+                    self.dirty[note] = False
         return True
 
     # ===========================================================================

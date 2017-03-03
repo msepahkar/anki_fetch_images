@@ -108,16 +108,14 @@ class AudioListWidgetItem(QtGui.QListWidgetItem):
     def __init__(self, url):
         super(AudioListWidgetItem, self).__init__()
         self.url = url
-        extention =  os.path.splitext(url)[1]
-        file_name = find_unique_file_name(tempfile.gettempdir(), 'add_image', extention)
-        # f = tempfile.NamedTemporaryFile(delete=False)
-        # f.close()
-        self.audio_file = file_name
+        f = tempfile.NamedTemporaryFile(delete=False)
+        f.close()
+        self.audio_file = f.name
         self._status = AudioListWidget.Status.discovered
         self.setText(AudioListWidget.Status.names[self._status])
         self.progress = 0
         self.progress_circle = None
-        self.thread = ThreadFetchAudio(url, file_name)
+        self.thread = ThreadFetchAudio(url, f.name)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetched, self.audio_fetched)
         QtCore.QObject.connect(self.thread, ThreadFetchAudio.signal_audio_fetching_progress, self.update_progress)
 

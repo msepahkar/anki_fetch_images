@@ -1,0 +1,3 @@
+#!/bin/bash
+cp -rfv fetch_image_tools ~/Anki/addons/sepahkar
+cp -fv fetch_image.py ~/Anki/addons/sepahkar
