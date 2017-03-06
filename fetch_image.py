@@ -32,7 +32,7 @@ class MainDialog(Dialog, Result):
         image_buttons = VerticalLayout([Button('Image go', self.start_images), Button('Image no', self.stop_images)])
         dict_all_buttons = VerticalLayout([Button('Dict all go', self.start_all_dictionaries), Button('Dict all no', self.stop_all_dictionaries)])
         image_all_buttons = VerticalLayout([Button('Image all go', self.start_all_images), Button('Image all no', self.stop_all_images)])
-        update_buttons = VerticalLayout([Button('update', self.update_note), Button('update all', self.update_all_notes)])
+        update_buttons = VerticalLayout([Button('update', lambda:self.update_note(self.notes[self.current_note_index])), Button('update all', self.update_all_notes)])
 
         button_new = Button('new', self.new_note)
 
@@ -59,14 +59,16 @@ class MainDialog(Dialog, Result):
         self.main_tabs[note].addTab(self.main_tabs[note].tab_word_fields, 'word')
 
         # main word
-        vertical_layout = self.main_tabs[note].tab_word_fields.add_scroll_area()
-        fields, values = get_fields(note)
-        for i in range(len(fields)):
+        tab = self.main_tabs[note].tab_word_fields
+        vertical_layout = tab.add_scroll_area()
+        tab.fields, values = get_fields(note)
+        tab.text_edits = []
+        for i in range(len(tab.fields)):
             h_layout = QtGui.QHBoxLayout()
-            label = QtGui.QLabel(fields[i])
-            text_edit = QtGui.QTextEdit(values[i])
+            label = QtGui.QLabel(tab.fields[i])
+            tab.text_edits.append(QtGui.QTextEdit(values[i]))
             h_layout.addWidget(label)
-            h_layout.addWidget(text_edit)
+            h_layout.addWidget(tab.text_edits[-1])
             vertical_layout.addLayout(h_layout)
 
         # dictionaries
@@ -229,15 +231,12 @@ class MainDialog(Dialog, Result):
             self.show_main_tab(self.notes[self.current_note_index])
 
     # ===========================================================================
-    def update_note(self):
-        note = self.notes[self.current_note_index]
-        if self.dirty[note]:
-            result = YesAllNoMessageBox(get_main_word(note) + '\n is changed.', 'update it?').show()
-            if result == YesAllNoMessageBox.YesAll:
-                self.update_all_notes()
-            elif result:
-                update_note(note)
-                self.dirty[note] = False
+    def update_note(self, note):
+        tab = self.main_tabs[note].tab_word_fields
+        for i, field in enumerate(tab.fields):
+            note[field] = tab.text_edits[i].toPlainText()
+        update_note(note)
+        self.dirty[note] = False
 
     # ===========================================================================
     def update_all_notes(self):
@@ -247,8 +246,7 @@ class MainDialog(Dialog, Result):
         if result == YesNoCancelMessageBox.Yes:
             for note in self.notes:
                 if self.dirty[note]:
-                    update_note(note)
-                    self.dirty[note] = False
+                    self.update_note(note)
         return True
 
     # ===========================================================================

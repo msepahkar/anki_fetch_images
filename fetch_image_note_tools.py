@@ -11,10 +11,6 @@ class Note:
 
 
 # ===========================================================================
-def get_model(note):
-    return note.model
-
-# ===========================================================================
 def get_fields(note):
     return note.fields, note.values
 
