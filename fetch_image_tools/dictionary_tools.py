@@ -303,8 +303,8 @@ class Browser(Widget):
         size = QtCore.QSize(35, 30)
         style = "font-size:18px;"
 
-        self.button_previous = Button(u"◀", self.backward, size, style, enabled=False)
-        self.button_next = Button(u"▶", self.forward, size, style, enabled=False)
+        self.button_previous = Button(u"◀", self.backward, size, style, enabled=True)
+        self.button_next = Button(u"▶", self.forward, size, style, enabled=True)
         self.button_stop = Button(u'✘', self.stop, size, style, enabled=True)
         self.button_reload = Button(u"↻", self.reload, size, style)
         self.address_line = QtGui.QLineEdit()
@@ -461,6 +461,12 @@ class DictionaryTab(Widget, Result):
         self.add_widget(self.browser)
 
     # ===========================================================================
+    def update_url(self):
+        word = get_main_word(self.note).split()
+        word = '+'.join(word)
+        self.url = self.web_address + word
+
+    # ===========================================================================
     def update_status(self, singal_type, param=None):
         name = self.name
         tab_dictionaries = self.mother
@@ -501,6 +507,7 @@ class DictionaryTab(Widget, Result):
     def start(self):
         if not self.browsing_started:
             self.browsing_started = True
+            self.update_url()
             self.browser.go(self.url)
 
     # ===========================================================================

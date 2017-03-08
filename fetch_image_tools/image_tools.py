@@ -124,6 +124,13 @@ class ImageTab(Widget, Result):
                      lambda : self.update_status(ImageTab.SignalType.urls_fetching_started))
 
     # ===========================================================================
+    def update_word(self):
+        self.words=[]
+        word = get_main_word(self.note)
+        self.words.append(word)
+        self.thread_fetch_image_urls.word = self.words[0]
+
+    # ===========================================================================
     def update_url_thread_word(self, word):
         self.thread_fetch_image_urls.word = word
 
@@ -278,7 +285,7 @@ class ImageTab(Widget, Result):
         if self.fetching_started:
             self.stop()
             self.remove_images()
-        word = unicode(self.word_line.text().toUtf8(), encoding="UTF-8")
+        word = unicode(self.word_line.text(), encoding="UTF-8")
         if word != self.words[self.current_word_index]:
             for i in range(len(self.words) - 1, self.current_word_index, -1):
                 del self.words[i]
@@ -291,6 +298,7 @@ class ImageTab(Widget, Result):
     # ===========================================================================
     def start(self):
         if not self.fetching_started:
+            self.update_word()
             self.remove_images()
             self.fetching_started = True
             self.thread_fetch_image_urls.start()

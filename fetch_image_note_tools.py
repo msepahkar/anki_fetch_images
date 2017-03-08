@@ -31,12 +31,12 @@ def update_note(note):
 # ===========================================================================
 def set_image(note, image):
     print('image set for note: {}'.format(unicode(note.main_word)))
-    return
+    return []
 
 # ===========================================================================
 def set_audio(note, audio_file):
     print(u'audio set for note: {}'.format(unicode(note.main_word)))
-    return
+    return []
 
 # ===========================================================================
 def new_note():

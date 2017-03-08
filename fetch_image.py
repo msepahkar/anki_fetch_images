@@ -67,6 +67,7 @@ class MainDialog(Dialog, Result):
             h_layout = QtGui.QHBoxLayout()
             label = QtGui.QLabel(tab.fields[i])
             tab.text_edits.append(QtGui.QTextEdit(values[i]))
+            tab.text_edits[-1].textChanged.connect(lambda: self.update_note(note))
             h_layout.addWidget(label)
             h_layout.addWidget(tab.text_edits[-1])
             vertical_layout.addLayout(h_layout)
@@ -295,12 +296,20 @@ class MainDialog(Dialog, Result):
 
     # ===========================================================================
     def set_image(self, note, image):
-        set_image(note, image)
+        changed_fields = set_image(note, image)
+        tab = self.main_tabs[note].tab_word_fields
+        for i, field in enumerate(tab.fields):
+            if field in changed_fields:
+                tab.text_edits[i].document().setPlainText(note[field])
         self.dirty[note] = True
 
     # ===========================================================================
     def set_audio(self, note, audio_file):
-        set_audio(note, audio_file)
+        changed_fields = set_audio(note, audio_file)
+        tab = self.main_tabs[note].tab_word_fields
+        for i, field in enumerate(tab.fields):
+            if field in changed_fields:
+                tab.text_edits[i].document().setPlainText(note[field])
         self.dirty[note] = True
 
     # ===========================================================================
