@@ -292,10 +292,9 @@ class Browser(Widget):
     signal_finished = QtCore.SIGNAL("Browser.finished")
 
     # ===========================================================================
-    def __init__(self, note, mother):
+    def __init__(self, initial_address, mother):
         super(Browser, self).__init__(mother)
 
-        self.note = note
         self.total_backs = 0
         self.current_back = 0
         self.forwarded = self.backwarded = self.went = False
@@ -307,7 +306,7 @@ class Browser(Widget):
         self.button_next = Button(u"▶", self.forward, size, style, enabled=True)
         self.button_stop = Button(u'✘', self.stop, size, style, enabled=True)
         self.button_reload = Button(u"↻", self.reload, size, style)
-        self.address_line = QtGui.QLineEdit()
+        self.address_line = QtGui.QLineEdit(initial_address)
         self.button_go = Button(u'✔', self.go, size, style)
         self.button_audio_list = Button(u'H', self.change_audio_window_status, size, style, enabled=False)
 
@@ -435,36 +434,33 @@ class DictionaryTab(Widget, Result):
                                       ('webster', 'https://www.merriam-webster.com/dictionary/'),
                                       ('oxford', 'https://en.oxforddictionaries.com/definition/us/'),
                                       ('forvo', 'https://forvo.com/search/')]
-    # dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
-    #                                  ('dict.cc', 'http://www.dict.cc/?s='),
-    #                                  ('leo.org', 'http://dict.leo.org/german-english/'),
-    #                                  ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
-    #                                  ('duden', 'http://www.duden.de/suchen/dudenonline/'),
-    #                                  ('forvo', 'https://forvo.com/search/')]
+    dictionaries[Language.german] = [('google translate', 'https://translate.google.com/#de/fa/'),
+                                     ('dict.cc', 'http://www.dict.cc/?s='),
+                                     ('leo.org', 'http://dict.leo.org/german-english/'),
+                                     ('collins', 'https://www.collinsdictionary.com/dictionary/german-english/'),
+                                     ('duden', 'http://www.duden.de/suchen/dudenonline/'),
+                                     ('forvo', 'https://forvo.com/search/')]
 
     # ===========================================================================
-    def __init__(self, address_pair, note, mother, parent=None):
+    def __init__(self, address_pair, mother, parent=None):
         Widget.__init__(self, mother, parent)
         Result.__init__(self)
         
         self.browsing_started = False
         self.name = address_pair[0]
         self.web_address = address_pair[1]
-        self.note = note
-        word = get_main_word(note).split()
-        word = '+'.join(word)
-        self.url = self.web_address + word
-        self.browser = Browser(note, mother=self)
+
+        self.browser = Browser(self.web_address, mother=self)
         self.connect(self.browser, Browser.signal_started, lambda: self.update_status(InlineBrowser.SignalType.started))
         self.connect(self.browser, Browser.signal_progress, lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
         self.connect(self.browser, Browser.signal_finished, lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
         self.add_widget(self.browser)
 
     # ===========================================================================
-    def update_url(self):
-        word = get_main_word(self.note).split()
+    def create_url(self, word):
+        word = word.split()
         word = '+'.join(word)
-        self.url = self.web_address + word
+        return self.web_address + word
 
     # ===========================================================================
     def update_status(self, singal_type, param=None):
@@ -504,11 +500,10 @@ class DictionaryTab(Widget, Result):
         self.browser.terminate()
 
     # ===========================================================================
-    def start(self):
+    def start(self, word):
         if not self.browsing_started:
             self.browsing_started = True
-            self.update_url()
-            self.browser.go(self.url)
+            self.browser.go(self.create_url(word))
 
     # ===========================================================================
     def stop(self):

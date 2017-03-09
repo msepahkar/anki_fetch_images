@@ -88,8 +88,9 @@ class MainWordTab(Widget):
         fields = []
         values = []
         for field in self.note.model()['flds']:
-            fields.append(field['name'])
-            values.append(self.note[field['name']])
+            fname = field['name']
+            fields.append(fname)
+            values.append(self.note[fname])
 
         for i, field in enumerate(fields):
             self.text_edits[field] = TextEdit(values[i], lambda:self.text_edit_changed(field), parent=self)

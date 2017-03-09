@@ -101,7 +101,7 @@ class MainDialog(Dialog, Result):
         main_tab = self.main_tabs[note]
         for dictionary_tab in main_tab.findChildren(DictionaryTab):
             if not dictionary_tab.browsing_started:
-                dictionary_tab.start()
+                dictionary_tab.start(get_main_word(note))
         for image_tab in main_tab.findChildren(ImageTab):
             if not image_tab.fetching_started:
                 image_tab.start()
@@ -123,7 +123,7 @@ class MainDialog(Dialog, Result):
         main_tab = self.main_tabs[note]
         for dictionary_tab in main_tab.findChildren(DictionaryTab):
             if not dictionary_tab.browsing_started:
-                dictionary_tab.start()
+                dictionary_tab.start(get_main_word(note))
 
     # ===========================================================================
     def stop_dictionarires(self, note=None):
@@ -166,7 +166,7 @@ class MainDialog(Dialog, Result):
             main_tab = self.main_tabs[note]
             for dictionary_tab in main_tab.findChildren(DictionaryTab):
                 if not dictionary_tab.browsing_started:
-                    dictionary_tab.start()
+                    dictionary_tab.start(get_main_word(note))
             for image_tab in main_tab.findChildren(ImageTab):
                 if not image_tab.fetching_started:
                     image_tab.start()
@@ -186,7 +186,7 @@ class MainDialog(Dialog, Result):
             main_tab = self.main_tabs[note]
             for dictionary_tab in main_tab.findChildren(DictionaryTab):
                 if not dictionary_tab.browsing_started:
-                    dictionary_tab.start()
+                    dictionary_tab.start(get_main_word(note))
 
     # ===========================================================================
     def stop_all_dictionaries(self):
@@ -276,7 +276,7 @@ class MainDialog(Dialog, Result):
         tab = TabWidgetProgress(mother=self.main_tabs[note].tab_dictionaries, closable=True, action=lambda index: self.stop_dictionary(tab, index))
         self.main_tabs[note].tab_dictionaries.addTab(tab, get_main_word(note))
         for dictionary in DictionaryTab.dictionaries[get_language(note)]:
-            dictionary_tab = DictionaryTab(dictionary, note, mother=tab)
+            dictionary_tab = DictionaryTab(dictionary, mother=tab)
             self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, self.main_tabs[note].tab_main_word.set_audio)
             self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, lambda x: self.set_dirty(note))
             tab.addTab(dictionary_tab, dictionary_tab.name)

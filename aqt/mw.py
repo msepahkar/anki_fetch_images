@@ -2,11 +2,23 @@ class Media:
     def dir(self):
         return '/home/mehdi/temp'
 
+class Field:
+    def __init__(self, name):
+        self.name = name
+    def __getitem__(self, item):
+        if item == 'name':
+            return self.name
+    def __setitem__(self, key, value):
+        pass
+
 class Model:
     def __init__(self, name):
         self.name = name
     def __getitem__(self, item):
-        return self.name
+        if item == 'name':
+            return 'English'
+        if item == 'flds':
+            return [Field('a'), Field('b')]
     def __setitem__(self, key, value):
         self.name = value
 
