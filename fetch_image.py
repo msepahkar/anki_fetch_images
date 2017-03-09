@@ -6,8 +6,9 @@ from PyQt4 import QtGui
 
 from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import *
-from fetch_image_tools.dictionary_tools import DictionaryTab, AudioListWidget
-from fetch_image_tools.image_tools import ImageTab, ImageGraphicsView
+from fetch_image_tools.dictionary_tab import DictionaryTab, AudioListWidget
+from fetch_image_tools.image_tab import ImageTab, ImageGraphicsView
+from fetch_image_tools.main_word_tab import MainWordTab
 from fetch_image_note_tools import *
 
 
@@ -30,14 +31,14 @@ class MainDialog(Dialog, Result):
         word_buttons = VerticalLayout([Button('Word +', self.next_note), Button('Word -', self.previous_note)])
         dict_buttons = VerticalLayout([Button('Dict go', self.start_dictionaries), Button('Dict no', self.stop_dictionarires)])
         image_buttons = VerticalLayout([Button('Image go', self.start_images), Button('Image no', self.stop_images)])
-        dict_all_buttons = VerticalLayout([Button('Dict all go', self.start_all_dictionaries), Button('Dict all no', self.stop_all_dictionaries)])
-        image_all_buttons = VerticalLayout([Button('Image all go', self.start_all_images), Button('Image all no', self.stop_all_images)])
+        dict_and_image_buttons = VerticalLayout([Button('Dict Image go', self.start_dictionaries_and_images), Button('Dict Image no', self.stop_dictionaries_and_images)])
         update_buttons = VerticalLayout([Button('update', lambda:self.update_note(self.notes[self.current_note_index])), Button('update all', self.update_all_notes)])
 
         button_new = Button('new', self.new_note)
+        button_stop_all = Button('stop all', self.stop_all)
 
         self.add_row_widgets(word_buttons, button_new, UiDesign.stretch, dict_buttons, image_buttons,
-                             dict_all_buttons, image_all_buttons, UiDesign.stretch, update_buttons)
+                             dict_and_image_buttons, button_stop_all, UiDesign.stretch, update_buttons)
 
         self.notes = notes
         for note in self.notes:
@@ -54,23 +55,12 @@ class MainDialog(Dialog, Result):
         self.main_tabs[note] = TabWidgetProgress(mother=self)
         self.connect(self.main_tabs[note], TabWidgetProgress.signal_update, self.update_progress)
 
-        # word fields
-        self.main_tabs[note].tab_word_fields = Widget(self.main_tabs[note])
-        self.main_tabs[note].addTab(self.main_tabs[note].tab_word_fields, 'word')
+        # main word
+        self.main_tabs[note].tab_main_word = MainWordTab(note, parent=self.main_tabs[note])
+        self.main_tabs[note].addTab(self.main_tabs[note].tab_main_word, 'word')
 
         # main word
-        tab = self.main_tabs[note].tab_word_fields
-        vertical_layout = tab.add_scroll_area()
-        tab.fields, values = get_fields(note)
-        tab.text_edits = []
-        for i in range(len(tab.fields)):
-            h_layout = QtGui.QHBoxLayout()
-            label = QtGui.QLabel(tab.fields[i])
-            tab.text_edits.append(QtGui.QTextEdit(values[i]))
-            tab.text_edits[-1].textChanged.connect(lambda: self.update_note(note))
-            h_layout.addWidget(label)
-            h_layout.addWidget(tab.text_edits[-1])
-            vertical_layout.addLayout(h_layout)
+        # self.add_word_fields(note)
 
         # dictionaries
         self.main_tabs[note].tab_dictionaries = TabWidgetProgress(mother=self.main_tabs[note], closable=True, action=lambda: self.stop_dictionarires(note))
@@ -160,6 +150,16 @@ class MainDialog(Dialog, Result):
             image_tab.stop()
 
     # ===========================================================================
+    def start_dictionaries_and_images(self, note=None):
+        self.start_dictionaries(note)
+        self.start_images(note)
+    
+    # ===========================================================================
+    def stop_dictionaries_and_images(self, note=None):
+        self.stop_dictionaries(note)
+        self.stop_images(note)
+    
+    # ===========================================================================
     def start_all(self):
         for note in self.notes:
             main_tab = self.main_tabs[note]
@@ -233,10 +233,11 @@ class MainDialog(Dialog, Result):
 
     # ===========================================================================
     def update_note(self, note):
-        tab = self.main_tabs[note].tab_word_fields
-        for i, field in enumerate(tab.fields):
-            note[field] = tab.text_edits[i].toPlainText()
-        update_note(note)
+        # tab = self.main_tabs[note].tab_main_word
+        # for i, field in enumerate(tab.fields):
+        #     note[field] = tab.text_edits[i].toPlainText()
+        note.flush()
+        note.flush()
         self.dirty[note] = False
 
     # ===========================================================================
@@ -262,26 +263,14 @@ class MainDialog(Dialog, Result):
         self.show_main_tab(note)
 
     # ===========================================================================
-    def add_word_fields(self, note):
-        layout = QtGui.QVBoxLayout()
-        fields, values = get_fields(note)
-        for i in range(len(fields)):
-            label = QtGui.QLabel(fields[i])
-            line = QtGui.QTextEdit(values[i])
-            h_layout = QtGui.QHBoxLayout()
-            h_layout.addWidget(label)
-            h_layout.addWidget(line)
-            layout.addLayout(h_layout)
-        self.main_tabs[note].tab_word_fields.setLayout(layout)
-
-    # ===========================================================================
     def add_dictionary_tabs(self, note):
         # english dictionaries
         tab = TabWidgetProgress(mother=self.main_tabs[note].tab_dictionaries, closable=True, action=lambda index: self.stop_dictionary(tab, index))
         self.main_tabs[note].tab_dictionaries.addTab(tab, get_main_word(note))
         for dictionary in DictionaryTab.dictionaries[get_language(note)]:
             dictionary_tab = DictionaryTab(dictionary, note, mother=tab)
-            self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, lambda audio_file: self.set_audio(note, audio_file))
+            self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, self.main_tabs[note].tab_main_word.set_audio)
+            self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, lambda x: self.set_dirty(note))
             tab.addTab(dictionary_tab, dictionary_tab.name)
 
     # ===========================================================================
@@ -291,25 +280,12 @@ class MainDialog(Dialog, Result):
 
         for image_type in sorted(ImageType.items, key=lambda x:x):
             image_tab = ImageTab(note, get_language(note), image_type, mother=tab)
-            self.connect(image_tab, ImageGraphicsView.set_image_signal, self.set_image)
+            self.connect(image_tab, ImageGraphicsView.set_image_signal, self.main_tabs[note].tab_main_word.set_image)
+            self.connect(image_tab, ImageGraphicsView.set_image_signal, lambda x: self.set_dirty(note))
             tab.addTab(image_tab, ImageType.names[image_type])
 
     # ===========================================================================
-    def set_image(self, note, image):
-        changed_fields = set_image(note, image)
-        tab = self.main_tabs[note].tab_word_fields
-        for i, field in enumerate(tab.fields):
-            if field in changed_fields:
-                tab.text_edits[i].document().setPlainText(note[field])
-        self.dirty[note] = True
-
-    # ===========================================================================
-    def set_audio(self, note, audio_file):
-        changed_fields = set_audio(note, audio_file)
-        tab = self.main_tabs[note].tab_word_fields
-        for i, field in enumerate(tab.fields):
-            if field in changed_fields:
-                tab.text_edits[i].document().setPlainText(note[field])
+    def set_dirty(self, note):
         self.dirty[note] = True
 
     # ===========================================================================

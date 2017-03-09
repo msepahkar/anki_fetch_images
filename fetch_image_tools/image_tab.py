@@ -196,7 +196,7 @@ class ImageTab(Widget, Result):
 
     # ===========================================================================
     def set_image(self, image):
-        self.emit(ImageGraphicsView.set_image_signal, self.note, image)
+        self.emit(ImageGraphicsView.set_image_signal, image)
 
     # ===========================================================================
     def update_status(self, signal_type, param=None):
