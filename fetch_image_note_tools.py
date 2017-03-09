@@ -13,11 +13,6 @@ def get_language(note):
 
 
 # ===========================================================================
-def new_note():
-    return Note('new word', Language.english, ['Word', 'Definition', 'Pronunciation'], ['', '', ''])
-
-
-# ===========================================================================
 def get_image_field(note):
     return 'Definition'
 

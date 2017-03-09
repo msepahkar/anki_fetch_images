@@ -3,6 +3,7 @@
 import pygame
 import sys
 from PyQt4 import QtGui
+from aqt import mw
 
 from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import *
@@ -255,7 +256,14 @@ class MainDialog(Dialog, Result):
     def new_note(self):
         current_note = self.notes[self.current_note_index]
         self.hide_main_tab(current_note)
-        note = new_note()
+
+        model = mw.col.models.byName(current_note.model()['name'])
+        model["did"] = current_note.model()['did']
+
+        note = notes.Note(mw.col, model)
+        note[model['flds'][0]['name']]='new'
+        mw.col.addNote(note)
+
         self.notes.append(note)
         self.current_note_index = len(self.notes) - 1
         self.add_note(note)
