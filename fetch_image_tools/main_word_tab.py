@@ -13,6 +13,61 @@ from aqt import mw
 
 
 # ===========================================================================
+class Note:
+    # ===========================================================================
+    def __init__(self, note):
+        self.note = note
+
+    # ===========================================================================
+    def flush(self):
+        self.note.flush()
+
+    # ===========================================================================
+    def model(self):
+        return self.note.model()
+
+    # ===========================================================================
+    def __getitem__(self, item):
+        return self.note[item]
+
+    # ===========================================================================
+    def __setitem__(self, key, value):
+        self.note[key] = value
+
+    # ===========================================================================
+    def main_word(self):
+        first_field = self.note.model()['flds'][0]
+        return self.note[first_field['name']]
+
+    # ===========================================================================
+    @property
+    def id(self):
+        return self.note.id
+
+    # ===========================================================================
+    @id.setter
+    def id(self, value):
+        self.note.id = value
+
+    # ===========================================================================
+    @property
+    def tags(self):
+        return self.note.tags
+
+    # ===========================================================================
+    @tags.setter
+    def tags(self, value):
+        self.note.tags = value
+
+    # ===========================================================================
+    def language(self):
+        model = self.note.model()['name'].lower()
+        if 'deutsch' in model or 'german' in model:
+            return Language.german
+        return Language.english
+
+
+# ===========================================================================
 class MainWordTab(Widget):
     word_changed_signal = QtCore.SIGNAL('MainWordTab.word_changed')
 
@@ -24,11 +79,11 @@ class MainWordTab(Widget):
 
         self.models_combo = Combo(mw.col.models.allNames(), parent=self)
         self.models_combo.setCurrentIndex(mw.col.models.allNames().index(self.note.model()['name']))
-        self.models_combo.currentIndexChanged.connect(self.model_changed)
+        self.models_combo.currentIndexChanged.connect(lambda index: self.model_changed(self.models_combo.currentText()))
 
         self.decks_combo = Combo(mw.col.decks.allNames(), parent=self)
         self.decks_combo.setCurrentIndex(mw.col.decks.allNames().index(mw.col.decks.name(self.note.model()['did'])))
-        self.decks_combo.currentIndexChanged.connect(self.deck_changed)
+        self.decks_combo.currentIndexChanged.connect(lambda index: self.deck_changed(self.decks_combo.currentText()))
 
         self.scroll_area = self.add_scroll_area()
         self.scroll_area.add_row_widgets(self.models_combo, self.decks_combo)
@@ -56,7 +111,7 @@ class MainWordTab(Widget):
 
         # initialize current values
         for i in range(min(len(previous_model['flds']), len(model['flds']))):
-            note[model['flds'][i]] = self.note[previous_model['flds'][i]]
+            note[model['flds'][i]['name']] = self.note[previous_model['flds'][i]['name']]
 
         # remove previous note
         mw.col.remNotes([self.note.id])
@@ -88,9 +143,9 @@ class MainWordTab(Widget):
         fields = []
         values = []
         for field in self.note.model()['flds']:
-            fname = field['name']
-            fields.append(fname)
-            values.append(self.note[fname])
+            field_name = field['name']
+            fields.append(field_name)
+            values.append(self.note[field_name])
 
         for i, field in enumerate(fields):
             self.text_edits[field] = TextEdit(values[i], lambda:self.text_edit_changed(field), parent=self)

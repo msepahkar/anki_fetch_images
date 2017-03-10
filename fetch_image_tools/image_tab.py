@@ -85,7 +85,7 @@ class ImageTab(Widget, Result):
         self.fetching_started = False
         self.words=[]
         self.note = note
-        word = get_main_word(note)
+        word = note.main_word()
         self.words.append(word)
         self.current_word_index = 0
         self.n_urls = 0

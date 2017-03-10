@@ -9,7 +9,7 @@ from fetch_image_tools.general_tools import Language, ImageType
 from fetch_image_tools.widget_tools import *
 from fetch_image_tools.dictionary_tab import DictionaryTab, AudioListWidget
 from fetch_image_tools.image_tab import ImageTab, ImageGraphicsView
-from fetch_image_tools.main_word_tab import MainWordTab
+from fetch_image_tools.main_word_tab import MainWordTab, Note
 from fetch_image_note_tools import *
 
 
@@ -30,7 +30,7 @@ class MainDialog(Dialog, Result):
 
         # main layout
         word_buttons = VerticalLayout([Button('Word +', self.next_note), Button('Word -', self.previous_note)])
-        dict_buttons = VerticalLayout([Button('Dict go', self.start_dictionaries), Button('Dict no', self.stop_dictionarires)])
+        dict_buttons = VerticalLayout([Button('Dict go', self.start_dictionaries), Button('Dict no', self.stop_dictionaries)])
         image_buttons = VerticalLayout([Button('Image go', self.start_images), Button('Image no', self.stop_images)])
         dict_and_image_buttons = VerticalLayout([Button('Dict Image go', self.start_dictionaries_and_images), Button('Dict Image no', self.stop_dictionaries_and_images)])
         update_buttons = VerticalLayout([Button('update', lambda:self.update_note(self.notes[self.current_note_index])), Button('update all', self.update_all_notes)])
@@ -41,12 +41,13 @@ class MainDialog(Dialog, Result):
         self.add_row_widgets(word_buttons, button_new, UiDesign.stretch, dict_buttons, image_buttons,
                              dict_and_image_buttons, button_stop_all, UiDesign.stretch, update_buttons)
 
-        self.notes = notes
-        for note in self.notes:
-            self.add_note(note)
+        self.notes = []
+        for note in notes:
+            self.notes.append(Note(note))
+            self.add_note(self.notes[-1])
 
         self.current_note_index = 0
-        self.show_main_tab(notes[self.current_note_index])
+        self.show_main_tab(self.notes[self.current_note_index])
 
     # ===========================================================================
     def add_note(self, note):
@@ -60,12 +61,9 @@ class MainDialog(Dialog, Result):
         self.main_tabs[note].tab_main_word = MainWordTab(note, parent=self.main_tabs[note])
         self.main_tabs[note].addTab(self.main_tabs[note].tab_main_word, 'word')
 
-        # main word
-        # self.add_word_fields(note)
-
         # dictionaries
-        self.main_tabs[note].tab_dictionaries = TabWidgetProgress(mother=self.main_tabs[note], closable=True, action=lambda: self.stop_dictionarires(note))
-        self.main_tabs[note].addTab(self.main_tabs[note].tab_dictionaries, 'dictinoaries')
+        self.main_tabs[note].tab_dictionaries = TabWidgetProgress(mother=self.main_tabs[note], closable=True, action=lambda: self.stop_dictionaries(note))
+        self.main_tabs[note].addTab(self.main_tabs[note].tab_dictionaries, 'dictionaries')
 
         # main word dictionaries
         self.add_dictionary_tabs(note)
@@ -77,45 +75,38 @@ class MainDialog(Dialog, Result):
         # main word images
         self.add_image_tabs(note)
 
+        # main tab for this word
         self.main_layout.addWidget(self.main_tabs[note])
         self.main_tabs[note].hide()
 
     # ===========================================================================
     def show_main_tab(self, note):
-        self.setWindowTitle(get_main_word(note))
+        self.setWindowTitle(note.main_word())
         main_tab = self.main_tabs[note]
         main_tab.show()
 
-    # ===========================================================================
-    def stop_dictionary(self, tab, index):
-        tab.widget(index).stop()
-
-    # ===========================================================================
-    def stop_image(self, tab, index):
-        tab.widget(index).stop()
-
-    # ===========================================================================
-    def start(self, note=None):
-        if note is None:
-            note = self.notes[self.current_note_index]
-        main_tab = self.main_tabs[note]
-        for dictionary_tab in main_tab.findChildren(DictionaryTab):
-            if not dictionary_tab.browsing_started:
-                dictionary_tab.start(get_main_word(note))
-        for image_tab in main_tab.findChildren(ImageTab):
-            if not image_tab.fetching_started:
-                image_tab.start()
-                
-    # ===========================================================================
-    def stop(self, note=None):
-        if note is None:
-            note = self.notes[self.current_note_index]
-        main_tab = self.main_tabs[note]
-        for dictionary_tab in main_tab.findChildren(DictionaryTab):
-            dictionary_tab.stop()
-        for image_tab in main_tab.findChildren(ImageTab):
-            image_tab.stop()
-
+    # # ===========================================================================
+    # def start(self, note=None):
+    #     if note is None:
+    #         note = self.notes[self.current_note_index]
+    #     main_tab = self.main_tabs[note]
+    #     for dictionary_tab in main_tab.findChildren(DictionaryTab):
+    #         if not dictionary_tab.browsing_started:
+    #             dictionary_tab.start(get_main_word(note))
+    #     for image_tab in main_tab.findChildren(ImageTab):
+    #         if not image_tab.fetching_started:
+    #             image_tab.start()
+    #
+    # # ===========================================================================
+    # def stop(self, note=None):
+    #     if note is None:
+    #         note = self.notes[self.current_note_index]
+    #     main_tab = self.main_tabs[note]
+    #     for dictionary_tab in main_tab.findChildren(DictionaryTab):
+    #         dictionary_tab.stop()
+    #     for image_tab in main_tab.findChildren(ImageTab):
+    #         image_tab.stop()
+    #
     # ===========================================================================
     def start_dictionaries(self, note=None):
         if note is None:
@@ -126,7 +117,7 @@ class MainDialog(Dialog, Result):
                 dictionary_tab.start(get_main_word(note))
 
     # ===========================================================================
-    def stop_dictionarires(self, note=None):
+    def stop_dictionaries(self, note=None):
         if note is None:
             note = self.notes[self.current_note_index]
         main_tab = self.main_tabs[note]
@@ -161,52 +152,11 @@ class MainDialog(Dialog, Result):
         self.stop_images(note)
     
     # ===========================================================================
-    def start_all(self):
-        for note in self.notes:
-            main_tab = self.main_tabs[note]
-            for dictionary_tab in main_tab.findChildren(DictionaryTab):
-                if not dictionary_tab.browsing_started:
-                    dictionary_tab.start(get_main_word(note))
-            for image_tab in main_tab.findChildren(ImageTab):
-                if not image_tab.fetching_started:
-                    image_tab.start()
-
-    # ===========================================================================
     def stop_all(self):
         for note in self.notes:
             main_tab = self.main_tabs[note]
             for dictionary_tab in main_tab.findChildren(DictionaryTab):
                 dictionary_tab.stop()
-            for image_tab in main_tab.findChildren(ImageTab):
-                image_tab.stop()
-
-    # ===========================================================================
-    def start_all_dictionaries(self):
-        for note in self.notes:
-            main_tab = self.main_tabs[note]
-            for dictionary_tab in main_tab.findChildren(DictionaryTab):
-                if not dictionary_tab.browsing_started:
-                    dictionary_tab.start(get_main_word(note))
-
-    # ===========================================================================
-    def stop_all_dictionaries(self):
-        for note in self.notes:
-            main_tab = self.main_tabs[note]
-            for dictionary_tab in main_tab.findChildren(DictionaryTab):
-                dictionary_tab.stop()
-
-    # ===========================================================================
-    def start_all_images(self):
-        for note in self.notes:
-            main_tab = self.main_tabs[note]
-            for image_tab in main_tab.findChildren(ImageTab):
-                if not image_tab.fetching_started:
-                    image_tab.start()
-
-    # ===========================================================================
-    def stop_all_images(self):
-        for note in self.notes:
-            main_tab = self.main_tabs[note]
             for image_tab in main_tab.findChildren(ImageTab):
                 image_tab.stop()
 
@@ -274,23 +224,31 @@ class MainDialog(Dialog, Result):
     def add_dictionary_tabs(self, note):
         # english dictionaries
         tab = TabWidgetProgress(mother=self.main_tabs[note].tab_dictionaries, closable=True, action=lambda index: self.stop_dictionary(tab, index))
-        self.main_tabs[note].tab_dictionaries.addTab(tab, get_main_word(note))
-        for dictionary in DictionaryTab.dictionaries[get_language(note)]:
+        self.main_tabs[note].tab_dictionaries.addTab(tab, note.main_word())
+        for dictionary in DictionaryTab.dictionaries[note.language()]:
             dictionary_tab = DictionaryTab(dictionary, mother=tab)
             self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, self.main_tabs[note].tab_main_word.set_audio)
             self.connect(dictionary_tab.browser.audio_window, AudioListWidget.set_audio_signal, lambda x: self.set_dirty(note))
             tab.addTab(dictionary_tab, dictionary_tab.name)
 
     # ===========================================================================
+    def stop_dictionary(self, tab, index):
+        tab.widget(index).stop()
+
+    # ===========================================================================
     def add_image_tabs(self, note):
         tab = TabWidgetProgress(mother=self.main_tabs[note].tab_images, closable=True, action=lambda index: self.stop_image(tab, index))
-        self.main_tabs[note].tab_images.addTab(tab, get_main_word(note))
+        self.main_tabs[note].tab_images.addTab(tab, note.main_word())
 
         for image_type in sorted(ImageType.items, key=lambda x:x):
-            image_tab = ImageTab(note, get_language(note), image_type, mother=tab)
+            image_tab = ImageTab(note, note.language(), image_type, mother=tab)
             self.connect(image_tab, ImageGraphicsView.set_image_signal, self.main_tabs[note].tab_main_word.set_image)
             self.connect(image_tab, ImageGraphicsView.set_image_signal, lambda x: self.set_dirty(note))
             tab.addTab(image_tab, ImageType.names[image_type])
+
+    # ===========================================================================
+    def stop_image(self, tab, index):
+        tab.widget(index).stop()
 
     # ===========================================================================
     def set_dirty(self, note):

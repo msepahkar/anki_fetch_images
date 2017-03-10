@@ -12,42 +12,67 @@ class Field:
         pass
 
 class Model:
-    def __init__(self, name):
+    def __init__(self, name, fields):
         self.name = name
+        self.fields = fields
+        self.did = 0
     def __getitem__(self, item):
         if item == 'name':
             return 'English'
         if item == 'flds':
-            return [Field('a'), Field('b')]
+            return self.fields
     def __setitem__(self, key, value):
-        self.name = value
+        if key == 'name':
+            self.name = value
+        if key == "did":
+            self.did = value
 
 
 class Models:
+    def __init__(self):
+        self.models = []
+    def add_model(self, model):
+        self.models.append(model)
     def byName(self, name):
-        return Model(name)
+        for model in self.models:
+            if model['name'] == name:
+                return model
+        return None
+
     def allNames(self):
-        return ['English', 'German']
+        names = []
+        for model in self.models:
+            names.append(model['name'])
+        return names
 
 class Decks:
+    def __init__(self):
+        self.decks = []
     def id(self, name):
         return 0
+    def add_deck(self, deck):
+        self.decks.append(deck)
     def name(self, id):
         return 'English deck'
     def allNames(self):
         return['English deck', 'German deck']
 
 class Col:
-    def __init__(self):
+    def __init__(self, models, decks):
         self.media = Media()
-        self.models = Models()
-        self.decks = Decks()
+        self.models = models
+        self.decks = decks
     def addNote(self, note):
         pass
     def remNotes(self, ids):
         pass
 
-col = Col()
+english_model = Model('English', [Field('Word'), Field('Definition'), Field('Pronunciation')])
+german_model = Model('German', [Field('Word'), Field('Definition'), Field('Pronunciation')])
+models = Models()
+models.add_model(english_model)
+models.add_model(german_model)
+col = Col(models, Decks())
 
 
 # model = col.models.byName(model_name)
