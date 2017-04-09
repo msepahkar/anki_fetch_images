@@ -9,7 +9,6 @@ from PyQt4 import QtWebKit
 from general_tools import enum, Result, Language, find_unique_file_name
 from thread_tools import ThreadFetchAudio
 from widget_tools import *
-from fetch_image_note_tools import *
 
 
 # ===========================================================================#########

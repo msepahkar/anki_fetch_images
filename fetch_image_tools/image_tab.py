@@ -6,7 +6,6 @@ from PIL.ImageQt import ImageQt
 from general_tools import enum, Result, ImageType
 from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
 from widget_tools import *
-from fetch_image_note_tools import *
 
 
 # ===========================================================================
@@ -79,13 +78,13 @@ class ImageTab(Widget, Result):
     NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL = 5
 
     # ===========================================================================
-    def __init__(self, note, language, image_type, mother, parent=None):
+    def __init__(self, extended_note, language, image_type, mother, parent=None):
         Widget.__init__(self, mother, parent)
         Result.__init__(self)
         self.fetching_started = False
         self.words=[]
-        self.note = note
-        word = note.main_word()
+        self.extended_note = extended_note
+        word = extended_note.main_word()
         self.words.append(word)
         self.current_word_index = 0
         self.n_urls = 0
@@ -125,10 +124,11 @@ class ImageTab(Widget, Result):
 
     # ===========================================================================
     def update_word(self):
-        self.words=[]
-        word = get_main_word(self.note)
-        self.words.append(word)
-        self.thread_fetch_image_urls.word = self.words[0]
+        word = self.extended_note.main_word()
+        if not self.words or word != self.words[0]:
+            self.words=[word]
+            self.word_line.setText(self.words[self.current_word_index])
+            self.thread_fetch_image_urls.update_word(word)
 
     # ===========================================================================
     def update_url_thread_word(self, word):
@@ -243,7 +243,10 @@ class ImageTab(Widget, Result):
 
         if signal_type == ImageTab.SignalType.image_ignored:
             self.n_ignored += 1
-            self.progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
+            if self.n_urls > 0:
+                self.progress = (self.n_fetched + self.n_ignored) * 100 / self.n_urls
+            else:
+                self.progress = 0
             if self.progress < 100:
                 tab_bar.setTabText(index, ImageType.names[self.image_type] + ' ' + str(self.progress) + '%')
                 tab_bar.setTabTextColor(index, Result.in_progress_color)
@@ -285,7 +288,7 @@ class ImageTab(Widget, Result):
         if self.fetching_started:
             self.stop()
             self.remove_images()
-        word = unicode(self.word_line.text(), encoding="UTF-8")
+        word = unicode(self.word_line.text())
         if word != self.words[self.current_word_index]:
             for i in range(len(self.words) - 1, self.current_word_index, -1):
                 del self.words[i]

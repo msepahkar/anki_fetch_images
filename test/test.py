@@ -1,12 +1,26 @@
-class B:
+from PyQt4 import QtCore
+from copy import deepcopy
+
+a=['hi', 'bye']
+
+
+class B(QtCore.QObject):
+    def say(self, msg):
+        print msg
+
+class C(QtCore.QObject):
+    signal = QtCore.SIGNAL('hi')
+
     def __init__(self):
-        self.x = 1
+        super(C, self).__init__()
+        self.b = [B(), B()]
+        for i, msg in enumerate(a):
+            self.connect(self, C.signal, lambda x=i: self.b[x].say(a[x]))
 
-class C(B):
-    def __init__(self, b):
-        self.y = 2
+    def go(self):
+        self.emit(self.signal)
 
-b=B()
-c=C(b)
-print(c.x)
-print(c.y)
+
+C().go()
+
+

@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
 
 import sys
-
 from PyQt4 import QtGui
-from fetch_image import MainDialog
-from fetch_image_tools.dictionary_tab import Language
+
 from anki import notes
 from aqt import mw
+from fetch_image_tools.fetch_image import MainDialog
 
-import sys
-import os
 # sys.path.append('/home/mehdi/working_laptop/anki_fetch_images')
 # sys.path.append(os.path.join(os.getcwd(), 'Anki/addons/sepahkar'))
 

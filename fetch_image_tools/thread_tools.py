@@ -101,6 +101,10 @@ class ThreadFetchImageUrls(QtCore.QThread):
         self.url = None
 
     # ===========================================================================
+    def update_word(self, word):
+        self.word = word
+
+    # ===========================================================================
     def create_url(self):
         self.quit_request = False
         query = self.word
