@@ -9,7 +9,7 @@ from anki import notes
 from general_tools import Language, ImageType
 from widget_tools import *
 from dictionary_tab import DictionaryTab, AudioListWidget
-from image_tab import ImageTab, ImageGraphicsView
+from image_tab import ImageTab, InlineBrowser
 from main_word_tab import MainWordTab, ExtendedNote
 
 
@@ -109,7 +109,7 @@ class MainDialog(Dialog, Result):
             extended_note = self.extended_notes[self.current_note_index]
         main_tab = self.main_tabs[extended_note]
         for image_tab in main_tab.findChildren(ImageTab):
-            if not image_tab.fetching_started:
+            if not image_tab.browsing_started:
                 image_tab.start()
 
     # ===========================================================================
@@ -219,10 +219,11 @@ class MainDialog(Dialog, Result):
         self.main_tabs[extended_note].tab_images.addTab(tab, extended_note.main_word())
 
         for image_type in sorted(ImageType.items, key=lambda x:x):
+            # image_tab = ImageTabOld(extended_note, extended_note.language(), image_type, mother=tab)
             image_tab = ImageTab(extended_note, extended_note.language(), image_type, mother=tab)
-            self.connect(self.main_tabs[extended_note].tab_main_word, MainWordTab.word_changed_signal, image_tab.update_word)
-            self.connect(image_tab, ImageGraphicsView.set_image_signal, self.main_tabs[extended_note].tab_main_word.set_image)
-            self.connect(image_tab, ImageGraphicsView.set_image_signal, lambda x: self.set_dirty(extended_note))
+            # self.connect(self.main_tabs[extended_note].tab_main_word, MainWordTab.word_changed_signal, image_tab.update_word)
+            image_tab.browser.inline_browser.set_image_signal.connect(self.main_tabs[extended_note].tab_main_word.set_image)
+            image_tab.browser.inline_browser.set_image_signal.connect(lambda x: self.set_dirty(extended_note))
             tab.addTab(image_tab, ImageType.names[image_type])
 
     # ===========================================================================

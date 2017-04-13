@@ -6,7 +6,7 @@ import magic
 from PIL.ImageQt import ImageQt
 from shutil import *
 from general_tools import *
-from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
+from thread_tools import ThreadFetchImages, ThreadFetchImageUrls
 from widget_tools import *
 from aqt import mw
 
@@ -180,6 +180,7 @@ class MainWordTab(Widget):
         name = self.extended_note.main_word()
         ext = 'jpg'
         full_file_name = find_unique_file_name(media_dir, name, ext)
+        print(full_file_name)
         image.save(full_file_name)
         image_field = self.extended_note.image_field()
         current_text = self.text_edits[image_field].document().toPlainText()

@@ -42,13 +42,13 @@ class ThreadQuitException(Exception):
 
 
 # ===========================================================================
-class ThreadFetchImage(QtCore.QThread):
+class ThreadFetchImages(QtCore.QThread):
     signal_image_fetched = QtCore.SIGNAL('ThreadFetchImage.image_fetched')
     signal_image_ignored = QtCore.SIGNAL('ThreadFetchImage.image_ignored')
 
     # ===========================================================================
     def __init__(self, image_urls, lock):
-        super(ThreadFetchImage, self).__init__(None)
+        super(ThreadFetchImages, self).__init__(None)
         self.image_urls = image_urls
         self.lock = lock
         self.quit_request = False
@@ -73,11 +73,11 @@ class ThreadFetchImage(QtCore.QThread):
                 try:
                     f_name, header = urllib.urlretrieve(image_url, reporthook=self.url_retrieve_report)
                     image = Image.open(f_name).convert("RGB")
-                    self.emit(ThreadFetchImage.signal_image_fetched, image_number, image)
+                    self.emit(ThreadFetchImages.signal_image_fetched, image_number, image)
                 except ThreadQuitException:
                     print 'quitting thread ...'
                 except Exception as e:
-                    self.emit(ThreadFetchImage.signal_image_ignored, image_number)
+                    self.emit(ThreadFetchImages.signal_image_ignored, image_number)
             else:
                 print 'quitting thread ...'
                 break
@@ -85,6 +85,27 @@ class ThreadFetchImage(QtCore.QThread):
     # ===========================================================================
     def quit(self):
         self.quit_request = True
+
+
+# ===========================================================================
+class ThreadFetchImage(QtCore.QThread):
+    signal_image_fetched = QtCore.pyqtSignal('PyQt_PyObject')
+    signal_image_ignored = QtCore.pyqtSignal('QString')
+
+    # ===========================================================================
+    def __init__(self, image_url):
+        super(ThreadFetchImage, self).__init__(None)
+        self.image_url = image_url
+
+    # ===========================================================================
+    def run(self):
+        try:
+            f_name, header = urllib.urlretrieve(self.image_url)
+            image = Image.open(f_name).convert("RGB")
+            self.signal_image_fetched.emit(image)
+        except Exception as e:
+            print('sorry' + e.message)
+            self.signal_image_ignored.emit(e.message)
 
 
 # ===========================================================================

@@ -1,26 +1,13 @@
-from PyQt4 import QtCore
-from copy import deepcopy
-
-a=['hi', 'bye']
-
-
-class B(QtCore.QObject):
-    def say(self, msg):
-        print msg
-
-class C(QtCore.QObject):
-    signal = QtCore.SIGNAL('hi')
-
-    def __init__(self):
-        super(C, self).__init__()
-        self.b = [B(), B()]
-        for i, msg in enumerate(a):
-            self.connect(self, C.signal, lambda x=i: self.b[x].say(a[x]))
-
-    def go(self):
-        self.emit(self.signal)
+# ===========================================================================
+def enum(**enums):
+    items = [value for key, value in enums.iteritems()]
+    enums['names'] = dict((value, key) for key, value in enums.iteritems())
+    enums['items'] = items
+    return type('Enum', (), enums)
 
 
-C().go()
+# ===========================================================================
+Language = enum(english=1, german=2)
 
-
+l = Language.english
+print(Language)

@@ -1,77 +1,314 @@
 # -*- coding: utf-8 -*-
 
-from PyQt4 import QtGui, QtCore
+from PyQt4 import QtGui, QtCore, QtWebKit
 import threading
 from PIL.ImageQt import ImageQt
-from general_tools import enum, Result, ImageType
-from thread_tools import ThreadFetchImage, ThreadFetchImageUrls
+from general_tools import enum, Result, ImageType, Language
+from thread_tools import ThreadFetchImage, ThreadFetchImages, ThreadFetchImageUrls
 from widget_tools import *
 
 
 # ===========================================================================
-class ImageGraphicsView(QtGui.QGraphicsView):
-    set_image_signal = QtCore.SIGNAL('ImageTab.set_image')
+class InlineBrowser(QtWebKit.QWebView):
+    set_image_signal = QtCore.pyqtSignal('PyQt_PyObject')
+    InfoType = enum(dictionary=1, image=2, dictionary_image=3)
+    SignalType = enum(started=1, progress=2, finished=3)
+
     # ===========================================================================
-    def __init__(self, number, w, h, mother, parent=None):
-        super(ImageGraphicsView, self).__init__(parent)
+    def __init__(self, mother, parent=None):
+        super(InlineBrowser, self).__init__(parent)
         self.mother = mother
-        self.setTransformationAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
-        self.setResizeAnchor(QtGui.QGraphicsView.AnchorUnderMouse)
-        self.setMouseTracking(True)
-        self.parent = parent
-        self.scene = QtGui.QGraphicsScene()
-        self.url = None
-        self.scene.setBackgroundBrush(QtCore.Qt.white)
-        self.setScene(self.scene)
-        self.setSceneRect(0, 0, w, h)
-        self.number = number
-        self.resize(w, h)
-        self.image = None
 
     # ===========================================================================
-    def resizeEvent(self, event):
-        self.fit()
+    def contextMenuEvent(self, event):
+        word = str(self.selectedText())
 
-    # ===========================================================================
-    def fit(self):
-        if self.scene is not None:
-            rect = QtCore.QRectF(self.sceneRect())
-            if not rect.isNull():
-                unity = self.transform().mapRect(QtCore.QRectF(0, 0, 1, 1))
-                self.scale(1 / unity.width(), 1 / unity.height())
-                viewrect = self.viewport().rect()
-                scenerect = self.transform().mapRect(rect)
-                factor = min((self.size().width() - 10) / scenerect.width(),
-                             (self.size().height() - 10) / scenerect.height())
-                self.scale(factor, factor)
-                self.centerOn(rect.center())
-
-    # ===========================================================================
-    def display_image(self, image_number, image):
-        self.scene.clear()
-        # w, h = image.size
-        self.imgQ = ImageQt(image)  # we need to hold reference to imgQ, or it will crash
-        self.pixMap = QtGui.QPixmap.fromImage(self.imgQ)#self.imgQ)
-        self.scene.addPixmap(self.pixMap)
-        # self.fitInView(QtCore.QRectF(0, 0, w, h), QtCore.Qt.KeepAspectRatio)
-        self.scene.update()
-
-    # ===========================================================================
-    def contextMenuEvent(self, QContextMenuEvent):
         menu = QtGui.QMenu(self)
+        sub_menu_definition = QtGui.QMenu(menu)
+        sub_menu_definition.setTitle('definition for "{}"'.format(word))
+        menu.addMenu(sub_menu_definition)
+        sub_menu_image = QtGui.QMenu(menu)
+        sub_menu_image.setTitle('image for "{}"'.format(word))
+        menu.addMenu(sub_menu_image)
+        sub_menu_definition_image = QtGui.QMenu(menu)
+        sub_menu_definition_image.setTitle('definition and image for "{}"'.format(word))
+        menu.addMenu(sub_menu_definition_image)
 
-        Action = menu.addAction("set this image")
-        Action.triggered.connect(self.set_image)
 
-        menu.exec_(self.mapToGlobal(QContextMenuEvent.pos()))
+        menu_item = sub_menu_definition.addAction('english')
+        menu_item.triggered.connect(lambda: self.fetch_this_word(word, Language.english, InlineBrowser.InfoType.dictionary))
+
+        menu_item = sub_menu_definition.addAction('german')
+        menu_item.triggered.connect(lambda: self.fetch_this_word(word, Language.german, InlineBrowser.InfoType.dictionary))
+
+        menu_item = sub_menu_image.addAction('english')
+        menu_item.triggered.connect(lambda: self.fetch_this_word(word, Language.english, InlineBrowser.InfoType.image))
+
+        menu_item = sub_menu_image.addAction('german')
+        menu_item.triggered.connect(lambda: self.fetch_this_word(word, Language.german, InlineBrowser.InfoType.image))
+
+        menu_item = sub_menu_definition_image.addAction('english')
+        menu_item.triggered.connect(lambda: self.fetch_this_word(word, Language.english, InlineBrowser.InfoType.dictionary_image))
+
+        menu_item = sub_menu_definition_image.addAction('german')
+        menu_item.triggered.connect(lambda: self.fetch_this_word(word, Language.german, InlineBrowser.InfoType.dictionary_image))
+
+        menu.exec_(self.mapToGlobal(event.pos()))
 
     # ===========================================================================
-    def set_image(self):
-        self.emit(ImageGraphicsView.set_image_signal, self.image)
+    def fetch_this_word(self, word, language, info_type):
+        if word:
+            mother = self.mother
+            while mother.mother:
+                mother = mother.mother
+            if info_type == InlineBrowser.InfoType.dictionary or info_type == InlineBrowser.InfoType.dictionary_image:
+                mother.add_dictionary_tabs(word, language)
+            if info_type == InlineBrowser.InfoType.image or info_type == InlineBrowser.InfoType.dictionary_image:
+                mother.add_image_tabs(word, language)
+
+    # ===========================================================================
+    def contextMenuEvent(self, event):
+        hit = self.page().currentFrame().hitTestContent(event.pos())
+        url = hit.imageUrl().toString()
+        if url:
+            menu = QtGui.QMenu(self)
+
+            Action = menu.addAction("set this image")
+            Action.triggered.connect(lambda: self.set_image(str(url)))
+
+            menu.exec_(self.mapToGlobal(event.pos()))
+
+    # ===========================================================================
+    def set_image(self, url):
+        self.thread = ThreadFetchImage(url)
+        self.thread.signal_image_fetched.connect(lambda image: self.set_image_signal.emit(image))
+        self.thread.start()
+
+# ===========================================================================
+class Browser(Widget):
+    signal_started = QtCore.SIGNAL("Browser.started")
+    signal_progress = QtCore.SIGNAL("Browser.progress")
+    signal_finished = QtCore.SIGNAL("Browser.finished")
+
+    # ===========================================================================
+    def __init__(self, initial_address, mother):
+        super(Browser, self).__init__(mother)
+
+        self.total_backs = 0
+        self.current_back = 0
+        self.forwarded = self.backwarded = self.went = False
+
+        size = QtCore.QSize(35, 30)
+        style = "font-size:18px;"
+
+        self.button_previous = Button(u"◀", self.backward, size, style, enabled=True)
+        self.button_next = Button(u"▶", self.forward, size, style, enabled=True)
+        self.button_stop = Button(u'✘', self.stop, size, style, enabled=True)
+        self.button_reload = Button(u"↻", self.reload, size, style)
+        self.address_line = QtGui.QLineEdit(initial_address)
+        self.button_go = Button(u'✔', self.go, size, style)
+        self.button_audio_list = Button(u'H', self.change_audio_window_status, size, style, enabled=False)
+
+        self.add_row_widgets(self.button_previous, self.button_next, self.button_stop, self.button_reload,
+                             self.address_line, self.button_go, self.button_audio_list)
+
+        self.inline_browser = InlineBrowser(self)
+        self.inline_browser.urlChanged.connect(self.update_address_line)
+        self.inline_browser.loadStarted.connect(self.started)
+        self.inline_browser.loadProgress.connect(self.progress)
+        self.inline_browser.loadFinished.connect(self.finished)
+        self.inline_browser.urlChanged.connect(self.url_changed)
+        self.inline_browser.page().networkAccessManager().finished.connect(self.url_discovered)
+
+        self.add_widget(self.inline_browser)
+
+
+    # ===========================================================================
+    def started(self):
+        self.emit(Browser.signal_started)
+
+    # ===========================================================================
+    def progress(self, progress):
+        self.emit(Browser.signal_progress, progress)
+
+    # ===========================================================================
+    def finished(self, ok):
+        self.emit(Browser.signal_finished, ok)
+
+    # ===========================================================================
+    def stop(self):
+        self.inline_browser.stop()
+
+    # ===========================================================================
+    def forward(self):
+        self.button_previous.setEnabled(True)
+        self.current_back += 1
+        if self.current_back == self.total_backs:
+            self.button_next.setEnabled(False)
+        self.forwarded = True
+        self.inline_browser.forward()
+
+    # ===========================================================================
+    def backward(self):
+        self.button_next.setEnabled(True)
+        self.current_back -= 1
+        if self.current_back == 0:
+            self.button_previous.setEnabled(False)
+        self.backwarded = True
+        self.inline_browser.back()
+
+    # ===========================================================================
+    def reload(self):
+        self.inline_browser.reload()
+
+    # ===========================================================================
+    def update_address_line(self, url):
+        self.address_line.setText(url.toString())
+
+    # ===========================================================================
+    def go(self, url=None):
+        if url:
+            self.address_line.setText(url)
+        self.went = True
+        if self.total_backs > 0:
+            self.current_back += 1
+            self.total_backs = self.current_back
+            self.button_previous.setEnabled(True)
+        url = QtCore.QUrl(self.address_line.text())
+        self.inline_browser.load(url)
+
+    # ===========================================================================
+    def change_audio_window_status(self):
+        if self.audio_window.isHidden():
+            self.audio_window.show()
+        else:
+            self.audio_window.hide()
+
+    # ===========================================================================
+    def url_changed(self):
+        if not self.forwarded and not self.backwarded and not self.went:
+            self.button_previous.setEnabled(True)
+            self.current_back += 1
+            self.total_backs = self.current_back
+
+    # ===========================================================================
+    def url_discovered(self, reply):
+        url = reply.url().toString()
+        if hasattr(url, 'endsWith'):
+            url = unicode(url.toUtf8(), encoding="UTF-8")
+        if url.endswith('mp3'):
+            self.button_audio_list.setEnabled(True)
+            self.audio_window.add(url)
+        else:
+            headers = reply.rawHeaderPairs()
+            for header in headers:
+                if header[1].contains('audio'):
+                    self.button_audio_list.setEnabled(True)
+                    self.audio_window.add(url)
+
+    # ===========================================================================
+    def quit(self):
+        self.inline_browser.stop()
+
+    # ===========================================================================
+    def terminate(self):
+        for i in range(self.audio_window.count()):
+            item = self.audio_window.item(i)
+            item.thread.terminate()
 
 
 # ===========================================================================
 class ImageTab(Widget, Result):
+
+    # ===========================================================================
+    def __init__(self, extended_note, language, image_type, mother, parent=None):
+        Widget.__init__(self, mother, parent)
+        Result.__init__(self)
+
+        self.extended_note = extended_note
+        self.language = language
+        self.image_type = image_type
+
+        self.browsing_started = False
+
+        if self.language == Language.german:
+            self.web_address = 'https://www.google.de/search?tbm=isch&q='
+        else:
+            self.web_address = 'https://www.google.com/search?tbm=isch&q='
+
+        self.browser = Browser(self.web_address, mother=self)
+        self.connect(self.browser, Browser.signal_started,
+                     lambda: self.update_status(InlineBrowser.SignalType.started))
+        self.connect(self.browser, Browser.signal_progress,
+                     lambda progress: self.update_status(InlineBrowser.SignalType.progress, progress))
+        self.connect(self.browser, Browser.signal_finished,
+                     lambda ok: self.update_status(InlineBrowser.SignalType.finished, ok))
+        self.add_widget(self.browser)
+
+    # ===========================================================================
+    def create_url(self, word):
+        word = word.split()
+        if self.image_type == ImageType.clipart:
+            word.append('clipart')
+        if self.image_type == ImageType.line_drawing:
+            word.append('line drawing')
+        word = '+'.join(word)
+        return self.web_address + word
+
+    # ===========================================================================
+    def update_status(self, singal_type, param=None):
+        pass
+        # name = self.name
+        # tab_dictionaries = self.mother
+        # index = tab_dictionaries.indexOf(self)
+        # tab_bar = tab_dictionaries.tabBar()
+        # if singal_type == InlineBrowser.SignalType.started:
+        #     self.progress = 0
+        #     tab_bar.setTabTextColor(index, Result.started_color)
+        #     tab_dictionaries.update_progress()
+        # if singal_type == InlineBrowser.SignalType.progress:
+        #     progress = param
+        #     self.in_progress = True
+        #     self.progress = progress
+        #     tab_bar.setTabText(index, name + ' ' + str(progress) + '%')
+        #     tab_bar.setTabTextColor(index, Result.in_progress_color)
+        #     tab_dictionaries.update_progress()
+        # if singal_type == InlineBrowser.SignalType.finished:
+        #     ok = param
+        #     tab_bar.setTabText(index, name)
+        #     if ok:
+        #         self.progress = 100
+        #         self.succeeded = True
+        #         tab_bar.setTabTextColor(index, Result.succeeded_color)
+        #     else:
+        #         self.failed = True
+        #         tab_bar.setTabTextColor(index, Result.failed_color)
+        #     tab_dictionaries.update_progress()
+
+    # ===========================================================================
+    def quit(self):
+        self.browser.quit()
+
+    # ===========================================================================
+    def terminate(self):
+        self.browser.terminate()
+
+    # ===========================================================================
+    def start(self, word=None):
+        if not self.browsing_started:
+            self.browsing_started = True
+            if word == None:
+                word = self.extended_note.main_word()
+            self.browser.go(self.create_url(word))
+
+    # ===========================================================================
+    def stop(self):
+        self.browsing_started = False
+        self.browser.stop()
+
+
+# ===========================================================================
+class ImageTabOld(Widget, Result):
     SignalType = enum(urls_fetched=1, urls_fetching_started=2, image_fetched=3, image_ignored=4, urls_fetching_stopped=5,
                       image_fetching_stopped=6)
     NUMBER_OF_IMAGES_IN_EACH_RAW = 5
@@ -165,11 +402,11 @@ class ImageTab(Widget, Result):
         lock = threading.Lock()
         # threads
         for i in range(ImageTab.NUMBER_OF_IMAGE_FETCHING_THREADS_PER_URL):
-            self.threads_fetch_image.append(ThreadFetchImage(image_urls, lock))
-            self.connect(self.threads_fetch_image[-1], ThreadFetchImage.signal_image_fetched, self.add_fetched_image)
-            self.connect(self.threads_fetch_image[-1], ThreadFetchImage.signal_image_fetched,
+            self.threads_fetch_image.append(ThreadFetchImages(image_urls, lock))
+            self.connect(self.threads_fetch_image[-1], ThreadFetchImages.signal_image_fetched, self.add_fetched_image)
+            self.connect(self.threads_fetch_image[-1], ThreadFetchImages.signal_image_fetched,
                          lambda image_number, image: self.update_status(ImageTab.SignalType.image_fetched, image_number))
-            self.connect(self.threads_fetch_image[-1], ThreadFetchImage.signal_image_ignored,
+            self.connect(self.threads_fetch_image[-1], ThreadFetchImages.signal_image_ignored,
                          lambda image_number: self.update_status(ImageTab.SignalType.image_ignored, image_number))
             self.threads_fetch_image[-1].start()
 
