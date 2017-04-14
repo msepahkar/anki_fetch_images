@@ -8,8 +8,9 @@ from anki import notes
 
 from general_tools import Language, ImageType
 from widget_tools import *
-from dictionary_tab import DictionaryTab, AudioListWidget
-from image_tab import ImageTab, InlineBrowser
+from dictionary_tab import DictionaryTab
+from browser_tools import InlineBrowser, AudioListWidget
+from image_tab import ImageTab
 from main_word_tab import MainWordTab, ExtendedNote
 
 
